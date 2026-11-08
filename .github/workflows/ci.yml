@@ -1,0 +1,45 @@
+# ET-8 · CI do Rifa App: lint → typecheck → test → test:int → build
+# Pipeline vermelho bloqueia o merge (AGENTS.md §3).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  qualidade-e-testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck (strict)
+        run: pnpm typecheck
+
+      - name: Testes unitários
+        run: pnpm test
+
+      - name: Testes de integração (Postgres real local via Supabase CLI)
+        uses: supabase/setup-cli@v1
+
+      - name: subir stack do Supabase local
+        run: supabase start
+
+      - name: rodar testes de integração
+        run: pnpm test:int
+
+      - name: Build de produção
+        run: pnpm build

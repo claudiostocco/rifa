@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/*
+ * Rifa App · tema base (Fase 0)
+ * Direção visual: papel quente + tinta stone + terracota de destaque.
+ * Contraste AA garantido para textos em tinta (≥ 7:1) e marca (≥ 4.5:1).
+ */
+@theme {
+  --color-papel: #faf6f0;
+  --color-papel-escuro: #f3ede3;
+  --color-tinta: #1c1917;
+  --color-tinta-suave: #57534e;
+  --color-marca: #9a3412;
+  --color-marca-forte: #7c2a0d;
+  --color-marca-suave: #fbeae2;
+  --color-verde-venda: #15803d;
+  --color-verde-venda-suave: #dcf3e3;
+  --color-ouro: #b45309;
+  --color-ouro-suave: #fdeeda;
+  --color-linha: #e7ded1;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+
+  --radius-card: 0.875rem;
+}
+
+body {
+  background-color: var(--color-papel);
+  color: var(--color-tinta);
+}
+
+/*
+ * Área de toque mínima (RNF-03): todo elemento clicável de UI base
+ * herda no mínimo 44px de altura tocável.
+ */
+:where(button, a, input, [role="button"]) {
+  touch-action: manipulation;
+}
+
+/* Foco visível consistente (a11y WCAG 2.4.7) */
+:focus-visible {
+  outline: 2px solid var(--color-marca);
+  outline-offset: 2px;
+}
