@@ -19,40 +19,40 @@
 
 ## Fase 0 · Setup & Boilerplate (meta: ambiente rodando "olá, mundo" + runners de teste verdes)
 
-- [ ] **ET-1 · Criar projeto Next.js + TypeScript (App Router)**
-  - [ ] Rodar `create-next-app` com TypeScript, App Router e Tailwind
-  - [ ] `tsconfig.json` com `strict: true` (tipagem estrita obrigatória)
-  - [ ] Página inicial mínima renderizando sem erros
-- [ ] **ET-2 · Tooling de qualidade**
-  - [ ] ESLint (config Next) + Prettier
-  - [ ] Scripts no `package.json`: `dev`, `build`, `lint`, `typecheck`, `test`, `test:int`, `test:e2e`
-  - [ ] [ ] Verificar: lint e typecheck passam no código recém-criado
-- [ ] **ET-3 · Provisionar Supabase (projeto gratuito) + Storage**
-  - [ ] Criar projeto; coletar `URL`, `anon key`, `service_role key`
-  - [ ] Criar bucket `premios`
-  - [ ] Instalar `@supabase/ssr` e `@supabase/supabase-js`
-- [ ] **ET-4 · Bootstrap dos clients Supabase** (`lib/supabase/client.ts` · `server.ts` · `realtime.ts`)
-  - [ ] Teste 1 (int): client anon no browser executa um SELECT trivial com sucesso
-  - [ ] Teste 2 (unit): chave `service_role` jamais acessível no bundle do browser (assert de variáveis de ambiente restritas ao servidor)
-- [ ] **ET-5 · Runner de testes unitários/integração (Vitest)**
-  - [ ] Instalar Vitest; configurar paths de `tests/unit/**` e `tests/integration/**`
-  - [ ] Teste 1 (smoke): suíte roda e encontra 1 teste passando
-  - [ ] Teste 2 (smoke): teste propositalmente falhante faz `pnpm test` falhar (prova de que o CI honra falhas — remover após verificação)
-- [ ] **ET-6 · Runner E2E (Playwright)**
-  - [ ] Instalar Playwright; config com `baseURL` local, 1 projeto mobile 360px + 1 desktop
-  - [ ] Teste 1 (smoke): spec acessa a home e valida um conteúdo mínimo
-  - [ ] Teste 2 (smoke): spec propositalmente falha com seletor inexistente (validando o gate de CI)
-- [ ] **ET-7 · Postgres real local (Supabase CLI) para integração**
-  - [ ] `supabase start` local; migrações aplicadas no ambiente de teste
-  - [ ] Documentar o comando `pnpm test:int` que sobe/reseta o banco local
+- [x] **ET-1 · Criar projeto Next.js + TypeScript (App Router)**
+  - [x] Rodar `create-next-app` com TypeScript, App Router e Tailwind
+  - [x] `tsconfig.json` com `strict: true` (tipagem estrita obrigatória)
+  - [x] Página inicial mínima renderizando sem erros
+- [x] **ET-2 · Tooling de qualidade**
+  - [x] ESLint (config Next) + Prettier
+  - [x] Scripts no `package.json`: `dev`, `build`, `lint`, `typecheck`, `test`, `test:int`, `test:e2e`
+  - [x] [ ] Verificar: lint e typecheck passam no código recém-criado
+- [x] **ET-3 · Provisionar Supabase (projeto gratuito) + Storage**
+  - [x] Criar projeto; coletar `URL`, `anon key`, `service_role key` (.local.env/.env.local)
+  - [x] Criar bucket `premios` (criado pela migração 001; aplicado no projeto cloud no primeiro `db push`)
+  - [x] Instalar `@supabase/ssr` e `@supabase/supabase-js`
+- [x] **ET-4 · Bootstrap dos clients Supabase** (`lib/supabase/client.ts` · `server.ts` · `realtime.ts`)
+  - [x] Teste 1 (int): client anon no browser executa um SELECT trivial com sucesso
+  - [x] Teste 2 (unit): chave `service_role` jamais acessível no bundle do browser (assert de variáveis de ambiente restritas ao servidor)
+- [x] **ET-5 · Runner de testes unitários/integração (Vitest)**
+  - [x] Instalar Vitest; configurar paths de `tests/unit/**` e `tests/integration/**`
+  - [x] Teste 1 (smoke): suíte roda e encontra 1 teste passando
+  - [x] Teste 2 (smoke): teste propositalmente falhante faz `pnpm test` falhar (prova de que o CI honra falhas — verificado e removido após comprovação)
+- [x] **ET-6 · Runner E2E (Playwright)**
+  - [x] Instalar Playwright; config com `baseURL` local, 1 projeto mobile 360px + 1 desktop
+  - [x] Teste 1 (smoke): spec acessa a home e valida um conteúdo mínimo
+  - [x] Teste 2 (smoke): spec propositalmente falha com seletor inexistente (verificado e removido após comprovação)
+- [x] **ET-7 · Postgres real local (Supabase CLI) para integração**
+  - [x] `supabase start` local; migrações aplicadas no ambiente de teste
+  - [x] Documentar o comando `pnpm test:int` que sobe/reseta o banco local (README)
 - [ ] **ET-8 · CI (GitHub Actions)**
-  - [ ] Pipeline: lint → typecheck → test → test:int → build
-  - [ ] [ ] Verificar: MR com lint ou teste falho fica vermelho (bloqueio ativo)
-- [ ] **ET-9 · Shell base + esqueleto PWA**
-  - [ ] `app/layout.tsx`, `manifest.webmanifest`, ícones e `sw.js` leve
-  - [ ] `components/ui/` (Button, Input, Badge, Modal, Toast) estilizados com Tailwind
-  - [ ] Teste 1 (unit): Button/Input renderizam estados básicos (habilitado, desabilitado, foco)
-  - [ ] Teste 2 (unit): Toast exibe mensagem em pt-BR e desaparece após o timeout
+  - [x] Pipeline: lint → typecheck → test → test:int → build (.github/workflows/ci.yml)
+  - [ ] [ ] Verificar: MR com lint ou teste falho fica vermelho (bloqueio ativo) — *pendente: conectar o repositório ao GitHub e o primeiro push para observar a execução real*
+- [x] **ET-9 · Shell base + esqueleto PWA**
+  - [x] `app/layout.tsx`, `manifest.webmanifest`, ícones e `sw.js` leve
+  - [x] `components/ui/` (Button, Input, Badge, Modal, Toast) estilizados com Tailwind
+  - [x] Teste 1 (unit): Button/Input renderizam estados básicos (habilitado, desabilitado, foco)
+  - [x] Teste 2 (unit): Toast exibe mensagem em pt-BR e desaparece após o timeout
 
 **Checkpoint Fase 0:** build verde no CI, dois runners de teste operantes, Supabase conectado, design system básico presente. Só então avance.
 
