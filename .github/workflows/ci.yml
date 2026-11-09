@@ -33,7 +33,12 @@ jobs:
         run: pnpm test
 
       - name: Testes de integração (Postgres real local via Supabase CLI)
-        uses: supabase/setup-cli@v1
+        # setup-cli v3 (major atual): a v1 falha instantaneamente com CLI v3
+        # (não sabe extrair o novo layout de distribuição). Versão fixada
+        # igual à local (supabase --version) para paridade.
+        uses: supabase/setup-cli@v3
+        with:
+          version: 3.0.0
 
       - name: subir stack do Supabase local
         # --ignore-health-check: o health check do CLI expira no runner de CI
