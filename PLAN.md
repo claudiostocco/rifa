@@ -46,8 +46,8 @@
   - [x] `supabase start` local; migrações aplicadas no ambiente de teste
   - [x] Documentar o comando `pnpm test:int` que sobe/reseta o banco local (README)
 - [ ] **ET-8 · CI (GitHub Actions)**
-  - [x] Pipeline: lint → typecheck → test → test:int → build (.github/workflows/ci.yml)
-  - [ ] [ ] Verificar: MR com lint ou teste falho fica vermelho (bloqueio ativo) — *pendente: conectar o repositório ao GitHub e o primeiro push para observar a execução real*
+  - [x] Pipeline: lint → typecheck → test → test:int → build (.github/workflows/ci.yml) — *run #3 verde no push (commit c106574): setup-cli@v3 com CLI 3.0.0 fixado + `--ignore-health-check` + espera de prontidão; runs #1/#2 ficaram vermelhos quando o CI falhou (comprovado empíricamente)*
+  - [ ] [ ] Verificar: MR com lint ou teste falho fica vermelho (bloqueio ativo) — *pendente: ativar regra de proteção de branch (GitHub → Settings → Branches → require status check "CI"); hoje `main` está desprotegida e o time faz push direto*
 - [x] **ET-9 · Shell base + esqueleto PWA**
   - [x] `app/layout.tsx`, `manifest.webmanifest`, ícones e `sw.js` leve
   - [x] `components/ui/` (Button, Input, Badge, Modal, Toast) estilizados com Tailwind
