@@ -26,7 +26,7 @@
 - [x] **ET-2 · Tooling de qualidade**
   - [x] ESLint (config Next) + Prettier
   - [x] Scripts no `package.json`: `dev`, `build`, `lint`, `typecheck`, `test`, `test:int`, `test:e2e`
-  - [x] [ ] Verificar: lint e typecheck passam no código recém-criado
+  - [x] Verificar: lint e typecheck passam no código recém-criado
 - [x] **ET-3 · Provisionar Supabase (projeto gratuito) + Storage**
   - [x] Criar projeto; coletar `URL`, `anon key`, `service_role key` (.local.env/.env.local)
   - [x] Criar bucket `premios` (criado pela migração 001; aplicado no projeto cloud no primeiro `db push`)
