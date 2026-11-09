@@ -36,7 +36,23 @@ jobs:
         uses: supabase/setup-cli@v1
 
       - name: subir stack do Supabase local
-        run: supabase start
+        # --ignore-health-check: o health check do CLI expira no runner de CI
+        # (disco/CPU mais lentos que máquina dev). A prontidão real é
+        # garantida pelo passo seguinte, que espera `supabase status` OK.
+        run: supabase start --ignore-health-check
+
+      - name: aguardar prontidão do stack
+        run: |
+          for i in $(seq 1 30); do
+            if supabase status -o json > /dev/null 2>&1; then
+              echo "Stack do Supabase pronto (tentativa ${i}/30)."
+              exit 0
+            fi
+            echo "Aguardando stack do Supabase (${i}/30)..."
+            sleep 5
+          done
+          echo "Stack do Supabase não ficou pronto em 150s."
+          exit 1
 
       - name: rodar testes de integração
         run: pnpm test:int
