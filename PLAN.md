@@ -45,9 +45,9 @@
 - [x] **ET-7 · Postgres real local (Supabase CLI) para integração**
   - [x] `supabase start` local; migrações aplicadas no ambiente de teste
   - [x] Documentar o comando `pnpm test:int` que sobe/reseta o banco local (README)
-- [ ] **ET-8 · CI (GitHub Actions)**
+- [x] **ET-8 · CI (GitHub Actions)**
   - [x] Pipeline: lint → typecheck → test → test:int → build (.github/workflows/ci.yml) — *run #3 verde no push (commit c106574): setup-cli@v3 com CLI 3.0.0 fixado + `--ignore-health-check` + espera de prontidão; runs #1/#2 ficaram vermelhos quando o CI falhou (comprovado empíricamente)*
-  - [ ] [ ] Verificar: MR com lint ou teste falho fica vermelho (bloqueio ativo) — *pendente: ativar regra de proteção de branch (GitHub → Settings → Branches → require status check "CI"); hoje `main` está desprotegida e o time faz push direto*
+  - [x] Verificar: MR com lint ou teste falho fica vermelho (bloqueio ativo) — *comprovado empíricamente (PR #1, commit 519d64e): branch protection em `main` ativa via API (`Settings → Branches` equivalente) com required status check `CI / qualidade-e-testes` + `qualidade-e-testes`, `strict: true` e `enforce_admins: true`; teste propositalmente falhante deixou o check vermelho e o merge foi recusado pela API com HTTP 405 "Required status check expected — 1 failing". Teste-prova e branch removidos após a comprovação (mesma metodologia de ET-5/ET-6). MR verde segue liberada ao merge (validado via dry-run no PR do checkout final desta tarefa).*
 - [x] **ET-9 · Shell base + esqueleto PWA**
   - [x] `app/layout.tsx`, `manifest.webmanifest`, ícones e `sw.js` leve
   - [x] `components/ui/` (Button, Input, Badge, Modal, Toast) estilizados com Tailwind
