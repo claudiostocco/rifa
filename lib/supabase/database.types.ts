@@ -166,6 +166,9 @@ isOneToOne: false
                            },
 "pertence_ao_propria_rifa":
 { Args: { "rifa": string }; Returns: boolean
+                           },
+"sortear_rifa":
+{ Args: { "rifa": string }; Returns: string
                            }
           }
           Enums: {

@@ -68,10 +68,10 @@
 - [x] **FD-2 · Políticas RLS conforme §2.3 da SPEC** *(políticas já presentes na migração 001; cobertura de RLS entregue em `tests/integration/fd2-rls.test.ts` contra o Postgres real)*
   - [x] Teste 1 (int): `anon` faz SELECT em rifas publicadas e em numeros — *anon (sem sessão) lê a rifa aberta e os 25 estados 001..025; linha "RLS (transversal)" da matriz §5.2*
   - [x] Teste 2 (int): `anon` é NEGADO em SELECT de compradores/vendas e em todo INSERT/UPDATE (cobertura de bypass) — *SELECT de compradores/vendas com dados reais detrás do RLS devolve vazio; INSERT em rifas/numeros/compradores/vendas → `42501`; UPDATE em rifas/numeros é no-op com estado inalterado (semântica Postgres: RLS esconde a linha em vez de elevar erro)*
-- [ ] **FD-3 · Migração `0002_sorteio.sql`** — função RPC `sortear_rifa` (transacional: FOR UPDATE, ABORT `RIFA_ABERTA` / `RIFA_SEM_VENDIDOS`, COMMIT único)
-  - [ ] Implementar a função completa (os cenários avançados de sorteio seguem recebendo cobertura na Fase 3)
-  - [ ] Teste 1 (int): RPC em rifa encerrada com vendas → 1 registro em sorteios + status sorteada
-  - [ ] Teste 2 (int): RPC em rifa aberta → erro RIFA_ABERTA; com 0 vendidos → RIFA_SEM_VENDIDOS; 2ª chamada sem anular falha
+- [x] **FD-3 · Migração `0002_sorteio.sql`** — função RPC `sortear_rifa` (transacional: FOR UPDATE, ABORT `RIFA_ABERTA` / `RIFA_SEM_VENDIDOS`, COMMIT único) *(migração em `supabase/migrations/002_sorteio.sql`, aplicada no stack local; `security invoker` — via oficial é a Server Action com service_role; código extra `RIFA_JA_SORTEADA` para a RNF-06; aleatoriedade via pgcrypto `gen_random_bytes` (RNF-07); execution revogada de `public` e liberada a `authenticated`/`service_role`)*
+  - [x] Implementar a função completa (os cenários avançados de sorteio seguem recebendo cobertura na Fase 3) — *trava FOR UPDATE + set de vendidos = 1 linha por número (auditável), grava sorteio e vira status em um COMMIT*
+  - [x] Teste 1 (int): RPC em rifa encerrada com vendas → 1 registro em sorteios + status sorteada — *tests/integration/fd3-sorteio.test.ts: 1 sorteio vigente, vencedor ∈ vendidos, total_vendidos=3, comprador correto, encerrada→sorteada*
+  - [x] Teste 2 (int): RPC em rifa aberta → erro RIFA_ABERTA; com 0 vendidos → RIFA_SEM_VENDIDOS; 2ª chamada sem anular falha — *códigos_assert no token da mensagem postgREST; transação inteira desfeita (estado inalterado em todas as negações; 2ª chamada → RIFA_JA_SORTEADA)*
 - [ ] **FD-4 · Tipos do banco** — `supabase gen types` + helpers de tipagem
   - [ ] [ ] Verificação: typecheck passa usando somente os tipos gerados do schema
 
