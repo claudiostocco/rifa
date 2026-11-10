@@ -72,8 +72,8 @@
   - [x] Implementar a função completa (os cenários avançados de sorteio seguem recebendo cobertura na Fase 3) — *trava FOR UPDATE + set de vendidos = 1 linha por número (auditável), grava sorteio e vira status em um COMMIT*
   - [x] Teste 1 (int): RPC em rifa encerrada com vendas → 1 registro em sorteios + status sorteada — *tests/integration/fd3-sorteio.test.ts: 1 sorteio vigente, vencedor ∈ vendidos, total_vendidos=3, comprador correto, encerrada→sorteada*
   - [x] Teste 2 (int): RPC em rifa aberta → erro RIFA_ABERTA; com 0 vendidos → RIFA_SEM_VENDIDOS; 2ª chamada sem anular falha — *códigos_assert no token da mensagem postgREST; transação inteira desfeita (estado inalterado em todas as negações; 2ª chamada → RIFA_JA_SORTEADA)*
-- [ ] **FD-4 · Tipos do banco** — `supabase gen types` + helpers de tipagem
-  - [ ] [ ] Verificação: typecheck passa usando somente os tipos gerados do schema
+- [x] **FD-4 · Tipos do banco** — `supabase gen types` + helpers de tipagem *(artefato em `lib/supabase/database.types.ts` regenerado por `pnpm db:types` (inclui a RPC da FD-3); helpers estritamente derivados em `lib/supabase/tipos.ts` — `Row` das 6 tabelas, `Insert/Update` de rifas e assinatura de `sortear_rifa`; proibido digitar forma de tabela à mão)*
+  - [x] Verificação: typecheck passa usando somente os tipos gerados do schema — *`pnpm typecheck` (strict) verde; provas type-level de identidade (`Igual`/`Esperar`) nos helpers e literal completo de `RifaRow` tipado no teste — divergência do schema quebra o CI*
 
 ### 1.2 Contratos e domínio (lib/)
 
