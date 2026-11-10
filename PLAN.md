@@ -65,9 +65,9 @@
 - [x] **FD-1 · Migração `0001_init.sql`** — tabelas (perfis, rifas, numeros, compradores, vendas, sorteios), índices e CHECKs conforme §2.4 da SPEC *(migração em `supabase/migrations/001_initial_schema.sql`, aplicada no stack local e no cloud)*
   - [x] Teste 1 (int): migração aplicada e INSERT válido em cada tabela (rifa com quantidade 25) funciona — *tests/integration/fd1-schema.test.ts: perfis via trigger OCR, rifas aberta, 25 números 1..N, comprador E.164, venda `organizador`, sorteio vigente*
   - [x] Teste 2 (int): CHECKs bloqueiam dados inválidos (quantidade 333, premio_valor ≤ 0, numero 5001, duplicidade em UNIQUE (rifa_id, numero)) — *código `23514` (CHECK) e `23505` (UNIQUE) asserido no Postgres real*
-- [ ] **FD-2 · Políticas RLS conforme §2.3 da SPEC**
-  - [ ] Teste 1 (int): `anon` faz SELECT em rifas publicadas e em numeros
-  - [ ] Teste 2 (int): `anon` é NEGADO em SELECT de compradores/vendas e em todo INSERT/UPDATE (cobertura de bypass)
+- [x] **FD-2 · Políticas RLS conforme §2.3 da SPEC** *(políticas já presentes na migração 001; cobertura de RLS entregue em `tests/integration/fd2-rls.test.ts` contra o Postgres real)*
+  - [x] Teste 1 (int): `anon` faz SELECT em rifas publicadas e em numeros — *anon (sem sessão) lê a rifa aberta e os 25 estados 001..025; linha "RLS (transversal)" da matriz §5.2*
+  - [x] Teste 2 (int): `anon` é NEGADO em SELECT de compradores/vendas e em todo INSERT/UPDATE (cobertura de bypass) — *SELECT de compradores/vendas com dados reais detrás do RLS devolve vazio; INSERT em rifas/numeros/compradores/vendas → `42501`; UPDATE em rifas/numeros é no-op com estado inalterado (semântica Postgres: RLS esconde a linha em vez de elevar erro)*
 - [ ] **FD-3 · Migração `0002_sorteio.sql`** — função RPC `sortear_rifa` (transacional: FOR UPDATE, ABORT `RIFA_ABERTA` / `RIFA_SEM_VENDIDOS`, COMMIT único)
   - [ ] Implementar a função completa (os cenários avançados de sorteio seguem recebendo cobertura na Fase 3)
   - [ ] Teste 1 (int): RPC em rifa encerrada com vendas → 1 registro em sorteios + status sorteada
