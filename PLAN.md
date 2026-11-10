@@ -77,9 +77,9 @@
 
 ### 1.2 Contratos e domínio (lib/)
 
-- [ ] **FD-5 · `lib/schemas.ts`** — DTOs Zod: `CriarRifaInput`, `AtualizarRifaInput`, `VendaInput`, `PerfilInput`, `ResultadoSorteio`
-  - [ ] Teste 1 (unit): payload válido passa o parse (todos os rótulos de prêmio, quantidade 5000)
-  - [ ] Teste 2 (unit): rejeita qtd_minima > quantidade, quantidade 333, telefone não-E.164, nome < 2 caracteres, título > 60, preço ≤ 0
+- [x] **FD-5 · `lib/schemas.ts`** — DTOs Zod: `CriarRifaInput`, `AtualizarRifaInput`, `VendaInput`, `PerfilInput`, `ResultadoSorteio` *(Zod v4; `quantidade` conferida contra `TAMANHOS_RIFA` (decisão 3), moeda restrita a numeric(10,2) com ≤ 2 casas, E.164 compartilhado; `qtd_minima ≤ quantidade` conferida transversalmente em criar e editar; `origem` ficada no servidor — nunca no payload)*
+  - [x] Teste 1 (unit): payload válido passa o parse (todos os rótulos de prêmio, quantidade 5000) — *tests/unit/schemas.test.ts: os 3 rótulos (`estimado`, `mais_de`, `ate`) parseados com quantidade 5000; parse adicional de VendaInput, PerfilInput, ResultadoSorteio e AtualizarRifaInput parciais*
+  - [x] Teste 2 (unit): rejeita qtd_minima > quantidade, quantidade 333, telefone não-E.164, nome < 2 caracteres, título > 60, preço ≤ 0 — *7 casos negativos com caminho (`path`) e mensagem pt-BR asseridos individualmente*
 - [ ] **FD-6 · `lib/formato.ts`** — `formatarNumero` (padLeft ≥ 3), moeda BRL, telefone E.164 ↔ máscara, datas
   - [ ] Teste 1 (unit): (1)→"001", (37)→"037", (1200)→"1200"; 850 → "R$ 850,00"; "+5511988887777" ↔ "(11) 98888-7777"
   - [ ] Teste 2 (unit): entradas fora do domínio (0, 5001, número não inteiro, telefone inválido) retornam erro claro em pt-BR
