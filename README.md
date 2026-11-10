@@ -35,7 +35,7 @@ pnpm dev
 | `pnpm lint` / `pnpm typecheck` | ESLint (config Next) · `tsc --noEmit` com strict |
 | `pnpm test` | Vitest — testes unitários (`tests/unit/**`) |
 | `pnpm test:int` | Vitest — integração com **Postgres real** local (`tests/integration/**`); exige `supabase start` antes |
-| `pnpm test:e2e` | Playwright — projetos `celular-360px` e `desktop`, servidor dev na porta 3100 |
+| `pnpm test:e2e` | Playwright — projetos `celular-360px` e `desktop`, servidor dev na porta 3100; **exige `supabase start`** (o webServer injeta as credenciais do stack local e os E2Es de login provisionam o organizador via API admin) |
 | `pnpm build` | build de produção |
 
 **Política de testes (AGENTS.md/SPEC §5.2):** cada funcionalidade entra com **≥ 2 testes** (1 caminho feliz + 1 erro/borda). Integração usa Postgres real local — **nunca** mockar Postgres/RLS.

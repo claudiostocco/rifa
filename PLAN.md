@@ -89,9 +89,9 @@
 
 ### 1.3 Autenticação e perfil
 
-- [ ] **FD-8 · Login `/entrar` (Supabase Auth e-mail+senha; cadastro público DESATIVADO no painel do Supabase)**
-  - [ ] Teste 1 (E2E): credenciais válidas → redirect para T1 com sessão httpOnly
-  - [ ] Teste 2 (E2E): credenciais inválidas → mensagem de erro em pt-BR, sem sessão criada
+- [x] **FD-8 · Login `/entrar` (Supabase Auth e-mail+senha; cadastro público DESATIVADO no painel do Supabase)** *(Server Action `entrar` em `actions/autenticacao.ts` com Zod (`EntrarInputSchema`) e mapeamento pt-BR dos erros do GoTrue; UI em `app/entrar` (card, `role=alert`, botão pendente "Entrando…" via `useActionState`); cadastro público desativado no `config.toml` local — espelhar no painel do cloud; sessão httpOnly forçada via `cookieOptions` no Server/proxy clients (default do @supabase/ssr é `false` — o browser fica anônimo, conforme §2.3); proxy do Next 16 (`proxy.ts` — `middleware.ts` está descontinuado) protege `/`, `/rifas/*`, `/perfil/*` e devolve usuário logado de `/entrar` à T1, com `getUser()` e renovação de sessão por cookie; E2Es injetam as variáveis do stack local no webServer a partir de `supabase status`)*
+  - [x] Teste 1 (E2E): credenciais válidas → redirect para T1 com sessão httpOnly — *tests/e2e/entrar.spec.ts: URL `/`, heading T1 renderizando e cookie `sb-…auth-token` com `httpOnly: true` (celular 360px + desktop)*
+  - [x] Teste 2 (E2E): credenciais inválidas → mensagem de erro em pt-BR, sem sessão criada — *alerta "E-mail ou senha incorretos." visível, URL continua `/entrar` e nenhum cookie de sessão; extra: visita anônima a `/rifas` → redirect a `/entrar` (guarda do proxy)*
 - [ ] **FD-9 · Rota protegida + perfil do organizador (`/perfil`)** — nome de exibição + WhatsApp, exibidos depois no rodapé da T4
   - [ ] Teste 1 (unit): Server Action `salvarPerfil` grava nome + telefone E.164 (UPDATE em perfis)
   - [ ] Teste 2 (unit/E2E): usuário não autenticado em rota protegida → redirect a /entrar; perfil com WhatsApp inválido → erro Zod

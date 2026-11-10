@@ -174,3 +174,11 @@ export const ResultadoSorteioSchema = z.object({
 });
 
 export type ResultadoSorteio = z.infer<typeof ResultadoSorteioSchema>;
+
+/** Credenciais do organizador para `/entrar` (FD-8 · SPEC §4.17). */
+export const EntrarInputSchema = z.object({
+  email: z.email({ error: "Informe um e-mail válido" }),
+  senha: z.string({ error: "Informe sua senha" }).min(1, "Informe sua senha"),
+});
+
+export type EntrarInput = z.infer<typeof EntrarInputSchema>;

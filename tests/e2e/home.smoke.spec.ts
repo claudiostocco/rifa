@@ -1,25 +1,23 @@
 /**
- * ET-6 · Teste 1 (smoke E2E): a home acessa com conteúdo mínimo visível
- * em ambos os projetos (celular 360px e desktop).
+ * ET-6 · Teste 1 (smoke E2E): conteúdo mínimo acessível sem login, em ambos
+ * os projetos (celular 360px e desktop). Desde a FD-8, `/` é rota do
+ * organizador e redireciona anônimos a `/entrar` — a fumaça valida a tela
+ * pública de entrada.
  */
 import { expect, test } from "@playwright/test";
 
-test.describe("fumaça · tela inicial", () => {
+test.describe("fumaça · tela de entrada", () => {
   test("deve exibir o título do Rifa App sem erros de renderização", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/entrar");
 
     await expect(page.getByRole("heading", { level: 1, name: "Rifa App" })).toBeVisible();
-    await expect(
-      page.getByText("Crie rifas, registre vendas e realize o sorteio com transparência.")
-    ).toBeVisible();
+    await expect(page.getByText("Entre para gerenciar suas rifas e vendas.")).toBeVisible();
   });
 
   test("deve declarar o manifest da PWA (decisão 6 — instalável)", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/entrar");
 
-    const manifesto = await page
-      .locator("link[rel='manifest']")
-      .getAttribute("href");
+    const manifesto = await page.locator("link[rel='manifest']").getAttribute("href");
 
     expect(manifesto).toBe("/manifest.webmanifest");
   });

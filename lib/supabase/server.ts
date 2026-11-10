@@ -14,13 +14,16 @@ export async function criarClienteServidor() {
 
   if (!url || !chaveAnon) {
     throw new Error(
-      "Configuração do Supabase ausente no servidor: defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY."
+      "Configuração do Supabase ausente no servidor: defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY.",
     );
   }
 
   const cookieStore = await cookies();
 
   return createServerClient<Database>(url, chaveAnon, {
+    // Sessão httpOnly (§4.17): o browser nunca lê o token — client.ts é
+    // anônimo e as escritas passam pelas Server Actions (SPEC §2.3).
+    cookieOptions: { httpOnly: true },
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -48,7 +51,7 @@ export function criarClienteAdministrador() {
   // `window` definido — aborta em vez de vazar a chave para o bundle.
   if (typeof window !== "undefined") {
     throw new Error(
-      "A chave service_role não pode ser usada no navegador. Use a Server Action correspondente."
+      "A chave service_role não pode ser usada no navegador. Use a Server Action correspondente.",
     );
   }
 
@@ -57,7 +60,7 @@ export function criarClienteAdministrador() {
 
   if (!url || !chaveServiceRole) {
     throw new Error(
-      "Configuração do Supabase ausente no servidor: defina NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY."
+      "Configuração do Supabase ausente no servidor: defina NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.",
     );
   }
 
