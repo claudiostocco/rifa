@@ -11,17 +11,33 @@
  * (RF-02), com compensação (rifa removida) se o lote falhar: uma rifa nunca
  * fica no ar sem os N números. Colisão de slug (UNIQUE) → novo sufixo e nova
  * tentativa (SPEC §2.8). Erros sempre em pt-BR prontos para Toast (§2.2).
+ *
+ * FD-11 · edição/arquivamento/exclusão (SPEC §4.13 · RN-09 · matriz §5.2
+ * RF-14 e RF-01 editar): mesma porta de escrita — Zod
+ * (`AtualizarRifaInputSchema`, FD-5) → sessão → conferência de posse (o
+ * `perfil_id` da linha tem de bater com o da sessão) → UPDATE com
+ * `service_role`. Edição só em rifa `aberta` (§4.1); `quantidade` bloqueada
+ * com QUALQUER venda (vigente ou removida — RN-09; bloquear também as
+ * removidas preserva o histórico delas, que cairia em cascata se a
+ * numeração fosse refeita). Exclusão é soft delete (`excluida`, §2.4): os
+ * dados ficam preservados e o RLS já os oculta do público.
  */
 import { revalidatePath } from "next/cache";
 
-import { CriarRifaInputSchema } from "@/lib/schemas";
+import { AtualizarRifaInputSchema, CriarRifaInputSchema } from "@/lib/schemas";
+import type { AtualizarRifaInput } from "@/lib/schemas";
 import { gerarSlug } from "@/lib/slug";
 import { criarClienteAdministrador, criarClienteServidor } from "@/lib/supabase/server";
-import type { NumeroInsert, RifaInsert, RifaRow } from "@/lib/supabase/tipos";
+import type { NumeroInsert, RifaInsert, RifaRow, RifaUpdate } from "@/lib/supabase/tipos";
 
 /** Estado consumido pelo `useActionState` do formulário T2 (FD-13). */
 export type EstadoRifa =
   | { ok: true; mensagem: string; rifaId: string; slug: string }
+  | { ok: false; mensagem: string };
+
+/** Estado das ações sem rifa retornada (arquivar/excluir). */
+export type EstadoAcao =
+  | { ok: true; mensagem: string }
   | { ok: false; mensagem: string };
 
 type RifaCriada = Pick<RifaRow, "id" | "slug">;
@@ -184,4 +200,280 @@ export async function criarRifa(
   revalidatePath("/rifas");
 
   return { ok: true, mensagem: "Rifa criada com sucesso.", rifaId, slug };
+}
+
+/* ---------------------------------------------------------------------- */
+/* FD-11 · editarRifa / arquivarRifa / excluirRifa (SPEC §4.13 · RN-09)    */
+/* ---------------------------------------------------------------------- */
+
+type ClienteAdmin = ReturnType<typeof criarClienteAdministrador>;
+
+/** Campos lidos antes de qualquer gravação — posse e guardas de estado. */
+type RifaPropria = Pick<
+  RifaRow,
+  "id" | "slug" | "perfil_id" | "status" | "quantidade" | "qtd_minima" | "arquivada" | "excluida"
+>;
+
+const PADRAO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const RECUSA_SESSAO = "Sua sessão expirou. Entre novamente para continuar.";
+const RECUSA_NAO_ENCONTRADA = "Não encontramos essa rifa na sua conta.";
+const RECUSA_BANCO = "Não foi possível salvar a alteração agora. Tente novamente em instantes.";
+const RECUSA_VENDAS_QUANTIDADE =
+  "A quantidade de números não pode ser alterada porque a rifa já tem vendas registradas.";
+const RECUSA_VENDAS_EXCLUSAO =
+  "Esta rifa tem compras registradas. Você pode arquivá-la para preservar o histórico.";
+
+/** id do usuário da sessão httpOnly (ou null, quando expirou). */
+async function usuarioDaSessao(): Promise<string | null> {
+  const supabase = await criarClienteServidor();
+  const { data: sessao } = await supabase.auth.getUser();
+  return sessao?.user?.id ?? null;
+}
+
+/**
+ * Lê a rifa conferindo posse (perfil_id da sessão) e visibilidade:
+ * `excluida` fica invisível para o próprio organizador em todas as ações.
+ */
+async function buscarRifaPropria(
+  admin: ClienteAdmin,
+  rifaId: string,
+  perfilId: string,
+): Promise<RifaPropria | null> {
+  const { data, error } = await admin
+    .from("rifas")
+    .select(
+      "id, slug, perfil_id, status, quantidade, qtd_minima, arquivada, excluida",
+    )
+    .eq("id", rifaId)
+    .maybeSingle();
+  if (error || !data || data.perfil_id !== perfilId || data.excluida) {
+    return null;
+  }
+  return data;
+}
+
+/**
+ * RN-09 conta "qualquer venda" — vigentes E removidas (`removida_em` não
+ * filtra): refez a numeração apagaria em cascata o histórico de vendas
+ * removidas (RN-07). Retorna null quando a conferência falha no banco.
+ */
+async function contarVendasDaRifa(
+  admin: ClienteAdmin,
+  rifaId: string,
+): Promise<number | null> {
+  const { data: numeros, error: erroNumeros } = await admin
+    .from("numeros")
+    .select("id")
+    .eq("rifa_id", rifaId);
+  if (erroNumeros) return null;
+
+  const ids = (numeros ?? []).map((numero) => numero.id);
+  if (ids.length === 0) return 0;
+
+  const { count, error } = await admin
+    .from("vendas")
+    .select("id", { count: "exact", head: true })
+    .in("numero_id", ids);
+  if (error) return null;
+  return count ?? 0;
+}
+
+/**
+ * Ajusta a numeração (RF-02) quando a quantidade muda — sempre em rifa sem
+ * vendas (guarda acima), então todas as pastilhas são `disponivel`:
+ * aumentar acrescenta o intervalo novo; diminuir remove o excedente.
+ */
+async function ajustarNumeracao(
+  admin: ClienteAdmin,
+  rifaId: string,
+  quantidadeAnterior: number,
+  quantidadeNova: number,
+): Promise<string | null> {
+  let erro: string | null = null;
+
+  if (quantidadeNova > quantidadeAnterior) {
+    const acrescentados: NumeroInsert[] = Array.from(
+      { length: quantidadeNova - quantidadeAnterior },
+      (_, indice) => ({
+        rifa_id: rifaId,
+        numero: quantidadeAnterior + 1 + indice,
+      }),
+    );
+    const { error: erroInsercao } = await admin.from("numeros").insert(acrescentados);
+    if (erroInsercao) erro = RECUSA_BANCO;
+  } else {
+    const { error: erroRemocao } = await admin
+      .from("numeros")
+      .delete()
+      .eq("rifa_id", rifaId)
+      .gt("numero", quantidadeNova);
+    if (erroRemocao) erro = RECUSA_BANCO;
+  }
+
+  return erro;
+}
+
+/**
+ * RF-01/RN-09 · edição. Contrato da SPEC §2.5: `editarRifa(id, dados)` —
+ * `dados` chega do client e é revalidado por Zod (nunca confiado). Só rifa
+ * `aberta` é editável (§4.1); `quantidade` nova exige rifa sem vendas.
+ */
+export async function editarRifa(
+  id: string,
+  dados: AtualizarRifaInput,
+): Promise<EstadoRifa> {
+  const parse = AtualizarRifaInputSchema.safeParse(dados);
+  if (!parse.success) {
+    const problema = parse.error.issues[0];
+    return { ok: false, mensagem: problema?.message ?? "Verifique os campos do formulário." };
+  }
+
+  if (!PADRAO_UUID.test(id)) {
+    return { ok: false, mensagem: RECUSA_NAO_ENCONTRADA };
+  }
+
+  const perfilId = await usuarioDaSessao();
+  if (!perfilId) {
+    return { ok: false, mensagem: RECUSA_SESSAO };
+  }
+
+  const admin = criarClienteAdministrador();
+  const rifa = await buscarRifaPropria(admin, id, perfilId);
+  if (!rifa) {
+    return { ok: false, mensagem: RECUSA_NAO_ENCONTRADA };
+  }
+
+  if (rifa.status !== "aberta") {
+    return { ok: false, mensagem: "Somente rifas abertas podem ser editadas." };
+  }
+
+  const quantidadeNova = parse.data.quantidade;
+  const quantidadeMudou = quantidadeNova !== undefined && quantidadeNova !== rifa.quantidade;
+
+  if (quantidadeMudou) {
+    const vendas = await contarVendasDaRifa(admin, id);
+    if (vendas === null) {
+      return { ok: false, mensagem: RECUSA_BANCO };
+    }
+    if (vendas > 0) {
+      return { ok: false, mensagem: RECUSA_VENDAS_QUANTIDADE };
+    }
+
+    // RN-05: a mínima (nova ou vigente) tem de caber na quantidade nova.
+    const minimaVigente = parse.data.qtd_minima ?? rifa.qtd_minima;
+    if (minimaVigente > quantidadeNova) {
+      return {
+        ok: false,
+        mensagem: "A quantidade mínima de vendidos não pode exceder a quantidade de números",
+      };
+    }
+  }
+
+  const atualizacao: RifaUpdate = {};
+  if (parse.data.titulo !== undefined) atualizacao.titulo = parse.data.titulo;
+  if (parse.data.descricao !== undefined) atualizacao.descricao = parse.data.descricao;
+  if (parse.data.premio_descricao !== undefined) {
+    atualizacao.premio_descricao = parse.data.premio_descricao;
+  }
+  if (parse.data.premio_rotulo !== undefined) atualizacao.premio_rotulo = parse.data.premio_rotulo;
+  if (parse.data.premio_valor !== undefined) atualizacao.premio_valor = parse.data.premio_valor;
+  if (parse.data.numero_valor !== undefined) atualizacao.numero_valor = parse.data.numero_valor;
+  if (parse.data.quantidade !== undefined) atualizacao.quantidade = parse.data.quantidade;
+  if (parse.data.qtd_minima !== undefined) atualizacao.qtd_minima = parse.data.qtd_minima;
+  if (parse.data.imagem_url !== undefined) atualizacao.imagem_url = parse.data.imagem_url;
+  if (parse.data.data_prevista !== undefined) atualizacao.data_prevista = parse.data.data_prevista;
+
+  // UPDATE primeiro: a numeração só é refeita com a rifa já consistente; se
+  // ela falhar, a compensação devolve a linha ao estado anterior.
+  const { error } = await admin.from("rifas").update(atualizacao).eq("id", id);
+  if (error) {
+    return { ok: false, mensagem: RECUSA_BANCO };
+  }
+
+  if (quantidadeMudou && quantidadeNova !== undefined) {
+    const erroNumeracao = await ajustarNumeracao(admin, id, rifa.quantidade, quantidadeNova);
+    if (erroNumeracao) {
+      await admin
+        .from("rifas")
+        .update({ quantidade: rifa.quantidade, qtd_minima: rifa.qtd_minima })
+        .eq("id", id);
+      return { ok: false, mensagem: erroNumeracao };
+    }
+  }
+
+  revalidatePath("/rifas");
+  return { ok: true, mensagem: "Rifa atualizada com sucesso.", rifaId: id, slug: rifa.slug };
+}
+
+/**
+ * RF-14 · arquivamento (sempre permitido): sai da listagem T1, dados
+ * preservados — só a bandeira `arquivada` muda (§2.7: bandeira, não estado).
+ */
+export async function arquivarRifa(id: string): Promise<EstadoAcao> {
+  if (!PADRAO_UUID.test(id)) {
+    return { ok: false, mensagem: RECUSA_NAO_ENCONTRADA };
+  }
+
+  const perfilId = await usuarioDaSessao();
+  if (!perfilId) {
+    return { ok: false, mensagem: RECUSA_SESSAO };
+  }
+
+  const admin = criarClienteAdministrador();
+  const rifa = await buscarRifaPropria(admin, id, perfilId);
+  if (!rifa) {
+    return { ok: false, mensagem: RECUSA_NAO_ENCONTRADA };
+  }
+
+  if (rifa.arquivada) {
+    return { ok: true, mensagem: "A rifa já está arquivada." };
+  }
+
+  const { error } = await admin.from("rifas").update({ arquivada: true }).eq("id", id);
+  if (error) {
+    return { ok: false, mensagem: "Não foi possível arquivar a rifa. Tente novamente em instantes." };
+  }
+
+  revalidatePath("/rifas");
+  return { ok: true, mensagem: "Rifa arquivada com sucesso." };
+}
+
+/**
+ * RF-14/RN-09 · exclusão só sem vendas; com vendas, o organizador é guiado
+ * ao arquivamento (texto prescrito da SPEC §4.13). Exclusão é soft delete
+ * (`excluida = true`, §2.4): a linha e o histórico permanecem no banco e o
+ * RLS deixa de publicá-los (anon — migração 001).
+ */
+export async function excluirRifa(id: string): Promise<EstadoAcao> {
+  if (!PADRAO_UUID.test(id)) {
+    return { ok: false, mensagem: RECUSA_NAO_ENCONTRADA };
+  }
+
+  const perfilId = await usuarioDaSessao();
+  if (!perfilId) {
+    return { ok: false, mensagem: RECUSA_SESSAO };
+  }
+
+  const admin = criarClienteAdministrador();
+  const rifa = await buscarRifaPropria(admin, id, perfilId);
+  if (!rifa) {
+    return { ok: false, mensagem: RECUSA_NAO_ENCONTRADA };
+  }
+
+  const vendas = await contarVendasDaRifa(admin, id);
+  if (vendas === null) {
+    return { ok: false, mensagem: RECUSA_BANCO };
+  }
+  if (vendas > 0) {
+    return { ok: false, mensagem: RECUSA_VENDAS_EXCLUSAO };
+  }
+
+  const { error } = await admin.from("rifas").update({ excluida: true }).eq("id", id);
+  if (error) {
+    return { ok: false, mensagem: "Não foi possível excluir a rifa. Tente novamente em instantes." };
+  }
+
+  revalidatePath("/rifas");
+  return { ok: true, mensagem: "Rifa excluída com sucesso." };
 }
