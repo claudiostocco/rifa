@@ -62,7 +62,7 @@
 
 ### 1.1 Banco de dados
 
-- [x] **FD-1 · Migração `0001_init.sql`** — tabelas (perfis, rifas, numeros, compradores, vendas, sorteios), índices e CHECKs conforme §2.4 da SPEC *(migração em `supabase/migrations/001_initial_schema.sql`, aplicada no stack local e no cloud)*
+- [x] **FD-1 · Migração `0001_init.sql`** — tabelas (perfis, rifas, numeros, compradores, vendas, sorteios), índices e CHECKs conforme §2.4 da SPEC *(migração em `supabase/migrations/001_initial_schema.sql`, aplicada no stack local e no cloud — reconstituída no cloud em 11/11/2026: a sonda da FD-9 revelou que lá as tabelas não existiam (PGRST205); 001→003 reaplicadas via `supabase db push --remote` e conferidas: anon lê rifas/numeros, é negado em INSERT (42501) e não vê compradores)*
   - [x] Teste 1 (int): migração aplicada e INSERT válido em cada tabela (rifa com quantidade 25) funciona — *tests/integration/fd1-schema.test.ts: perfis via trigger OCR, rifas aberta, 25 números 1..N, comprador E.164, venda `organizador`, sorteio vigente*
   - [x] Teste 2 (int): CHECKs bloqueiam dados inválidos (quantidade 333, premio_valor ≤ 0, numero 5001, duplicidade em UNIQUE (rifa_id, numero)) — *código `23514` (CHECK) e `23505` (UNIQUE) asserido no Postgres real*
 - [x] **FD-2 · Políticas RLS conforme §2.3 da SPEC** *(políticas já presentes na migração 001; cobertura de RLS entregue em `tests/integration/fd2-rls.test.ts` contra o Postgres real)*
