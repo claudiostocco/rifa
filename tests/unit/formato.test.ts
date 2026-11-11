@@ -15,6 +15,7 @@ import {
   formatarTelefone,
   formatarTelefoneE164,
   formatarTelefoneOculto,
+  mascaraTelefoneDigitacao,
 } from "@/lib/formato";
 
 /** "R$" e o valor vêm separados por espaço inquebrável do Intl. */
@@ -75,5 +76,30 @@ describe("FD-6 · lib/formato — formatação de exibição", () => {
     // 20:30 UTC = 17:30 no fuso de exibição (America/Sao_Paulo, UTC-3).
     expect(formatarDataHora("2026-11-08T20:30:00.000Z")).toBe("08/11/2026 17:30");
     expect(formatarDataHora(new Date("2026-11-08T20:30:00.000Z"))).toBe("08/11/2026 17:30");
+  });
+
+  it("deve aplicar a máscara progressivamente enquanto o organizador digita o WhatsApp", () => {
+    // Digitação dígito a dígito (celular, 11 dígitos — grupos 5-4)
+    expect(mascaraTelefoneDigitacao("")).toBe("");
+    expect(mascaraTelefoneDigitacao("1")).toBe("(1");
+    expect(mascaraTelefoneDigitacao("11")).toBe("(11");
+    expect(mascaraTelefoneDigitacao("119")).toBe("(11) 9");
+    expect(mascaraTelefoneDigitacao("1198")).toBe("(11) 98");
+    expect(mascaraTelefoneDigitacao("1198888")).toBe("(11) 98888");
+    expect(mascaraTelefoneDigitacao("11988887")).toBe("(11) 98888-7");
+    expect(mascaraTelefoneDigitacao("11988887777")).toBe("(11) 98888-7777");
+
+    // Máscara fixa do celular (grupos 5-4 do §4.19): com o fixo de 8 dígitos,
+    // o 9º dígito fica pendente até ser digitado — sem reformatação no meio
+    expect(mascaraTelefoneDigitacao("1133334444")).toBe("(11) 33334-444");
+    expect(mascaraTelefoneDigitacao("(11) 98888-7777")).toBe("(11) 98888-7777");
+  });
+
+  it("deve ignorar caracteres não numéricos e limitar a 11 dígitos na máscara de digitação", () => {
+    expect(mascaraTelefoneDigitacao("11) 98888-7777x")).toBe("(11) 98888-7777");
+    expect(mascaraTelefoneDigitacao("119888877779999")).toBe("(11) 98888-7777");
+    expect(mascaraTelefoneDigitacao("abc")).toBe("");
+    // Nenhum dígito do meio é perdido pela máscara (composição com E164)
+    expect(formatarTelefoneE164(mascaraTelefoneDigitacao("11988887777"))).toBe("+5511988887777");
   });
 });

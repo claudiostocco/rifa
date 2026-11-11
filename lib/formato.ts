@@ -97,6 +97,27 @@ export function formatarTelefoneE164(texto: string): string {
   return `+${candidata}`;
 }
 
+/**
+ * Máscara progressiva ao digitar (usada nos formulários): aceita texto parcial
+ * e devolve o melhor formato possível no momento — "(1" → "(11" → "(11) 9" →
+ * "(11) 98888-7777". Não valida domínio (isso é do `formatarTelefoneE164` na
+ * submissão); só formata, com os grupos fixos do celular §4.19 (5-4) — sem
+ * reformatação no meio da digitação (o campo é de WhatsApp: celular).
+ */
+export function mascaraTelefoneDigitacao(texto: string): string {
+  const digitos = texto.replace(/\D/g, "").slice(0, 11);
+  if (digitos.length === 0) return "";
+
+  const area = digitos.slice(0, 2);
+  const assinante = digitos.slice(2);
+
+  if (digitos.length <= 2) return `(${area}`;
+  if (assinante.length === 0) return `(${area}) `;
+  return assinante.length <= 5
+    ? `(${area}) ${assinante}`
+    : `(${area}) ${assinante.slice(0, 5)}-${assinante.slice(5)}`;
+}
+
 const DATA_ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /** Data prevista: "2026-12-25" → "25/12/2026" (date sem componente de hora). */
