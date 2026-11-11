@@ -21,6 +21,8 @@ export type SorteioRow = TabelasPublicas["sorteios"]["Row"];
 /** Escritas via service_role nas Server Actions (`criarRifa`/`editarRifa`, FD-10/FD-11). */
 export type RifaInsert = TabelasPublicas["rifas"]["Insert"];
 export type RifaUpdate = TabelasPublicas["rifas"]["Update"];
+/** Lote de numeração 1..N gravado por `criarRifa` (RF-02, FD-10). */
+export type NumeroInsert = TabelasPublicas["numeros"]["Insert"];
 
 /** Assinatura da RPC transacional do sorteio (`actions/sorteio.ts`, FD-3/SR-3). */
 export type SortearRifaArgs = Database["public"]["Functions"]["sortear_rifa"]["Args"];

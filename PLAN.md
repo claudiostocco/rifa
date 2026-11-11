@@ -98,9 +98,9 @@
 
 ### 1.4 Server Actions de rifa (escrita autenticada)
 
-- [ ] **FD-10 · `criarRifa`** — validação Zod, slug único, gravação da rifa + números 001..N
-  - [ ] Teste 1 (int): criar rifa de 100 → persistida com slug, status aberta e 100 números disponivel
-  - [ ] Teste 2 (int): payload inválido (cenários do FD-5) → erro de Zod sem rifa criada; colisão de slug → slug alternativo gerado
+- [x] **FD-10 · `criarRifa`** — validação Zod, slug único, gravação da rifa + números 001..N *(Server Action em `actions/rifas.ts`: `CriarRifaInputSchema` (FD-5) → sessão/perfil via client de cookies → gravação com `service_role` (SPEC §2.2; posse garantida — `perfil_id` vem da sessão, nunca do payload) → lote de numeração 1..N (RF-02) com **compensação**: falha no lote remove a rifa — nunca fica no ar sem os N números; colisão de slug (UNIQUE 23505) reconciliada com novo sufixo criptográfico (`lib/slug.ts` — Web Crypto, nunca `Math.random`, RNF-07) por até 5 tentativas; moeda aceita em pt-BR ("850,50" → 850.5) para a máscara da T2; `revalidatePath("/rifas")` no mesmo roundtrip; estado `EstadoRifa` pronto para `useActionState` na FD-13)*
+  - [x] Teste 1 (int): criar rifa de 100 → persistida com slug, status aberta e 100 números disponivel — *tests/integration/fd10-criar-rifa.test.ts: rifa com slug `rifa-do-forno-eletrico-####`, perfil da sessão, valores 850,50/10,00 parseados de pt-BR, qtd_minima 30, status `aberta`; 100 números 001..100 todos `disponivel`, sem duplicidade*
+  - [x] Teste 2 (int): payload inválido (cenários do FD-5) → erro de Zod sem rifa criada; colisão de slug → slug alternativo gerado — *qtd_minima 200 > quantidade 100 e quantidade 333 recusados com mensagem pt-BR do contrato e banco inalterado; colisão determinística (sufixo controlado no teste): `rifa-do-bazar-col1` já existente → reconciliada para `rifa-do-bazar-alt2` com numeração completa; extra: sem sessão → recusa pt-BR*
 - [ ] **FD-11 · `editarRifa` / `arquivarRifa` / `excluirRifa`** — regras RN-09 (quantidade bloqueada com vendas; exclusão só sem vendas)
   - [ ] Teste 1 (int): editar título/preço persiste; arquivar oculta da listagem T1 mas preserva os dados
   - [ ] Teste 2 (int): editar quantidade com vendas → recusado; excluir rifa com vendas → erro "Esta rifa tem compras registradas…"
