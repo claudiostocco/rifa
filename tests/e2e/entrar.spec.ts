@@ -24,9 +24,9 @@ test.describe("FD-8 · login /entrar", () => {
     await page.getByLabel("Senha").fill(CREDENCIAIS_ORGANIZADOR.senha);
     await page.getByRole("button", { name: "Entrar" }).click();
 
-    // Redirect para a T1 (§2.8) com o placeholder da Fase 0 renderizando.
+    // Redirect para a T1 (§2.8) — desde a FD-12, a listagem "Minhas Rifas".
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Rifa App" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Minhas Rifas" })).toBeVisible();
 
     const cookies = await context.cookies();
     const cookieSessao = cookies.find(

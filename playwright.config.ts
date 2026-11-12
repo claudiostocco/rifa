@@ -7,9 +7,14 @@ import { defineConfig, devices } from "@playwright/test";
  * baseURL local (SPEC RNF-01 — 360px é a referência mínima de tela).
  *
  * FD-8: o app em teste fala com o POSTGRES real local (SPEC §5.1) — quando
- * o stack Supabase está no ar, as variáveis do app são injetadas no
- * webServer a partir de `supabase status`; sem stack, a fumaça continua
- * independente (nenhuma página pública toca o Supabase).
+ * o stack Supabase está no ar, TODAS as credenciais do app são injetadas no
+ * webServer a partir de `supabase status`: URL + anon (FD-8) e, desde a
+ * FD-12, também a `service_role` — sem ela, o `.env.local` (apontado ao
+ * cloud) vazava uma chave de outro ambiente para as Server Actions
+ * (`criarClienteAdministrador`), que recebiam 401 no Postgres local. Um só
+ * ambiente por execução: ou o stack local inteiro, ou o `.env.local` por
+ * completo (sem stack). A service_role vive no processo do app de teste —
+ * jamais no bundle do browser (teste ET-4 guarda isso).
  */
 function variaveisDoStackLocal(): Record<string, string> {
   try {
@@ -21,10 +26,14 @@ function variaveisDoStackLocal(): Record<string, string> {
     ) as Record<string, string>;
 
     if (status.API_URL && status.ANON_KEY) {
-      return {
+      const variaveis: Record<string, string> = {
         NEXT_PUBLIC_SUPABASE_URL: status.API_URL,
         NEXT_PUBLIC_SUPABASE_ANON_KEY: status.ANON_KEY,
       };
+      if (status.SERVICE_ROLE_KEY) {
+        variaveis.SUPABASE_SERVICE_ROLE_KEY = status.SERVICE_ROLE_KEY;
+      }
+      return variaveis;
     }
   } catch {
     // Stack local ausente: mantém o `.env.local` e roda o que for possível.

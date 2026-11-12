@@ -23,7 +23,8 @@ export const CREDENCIAIS_ORGANIZADOR = {
 
 type StatusSupabase = Record<string, string>;
 
-function lerStatusLocal(): { url: string; serviceRole: string } {
+/** Credenciais do stack local (`supabase status`) para os clients admin dos testes. */
+export function lerStatusLocal(): { url: string; serviceRole: string } {
   const bruto = execSync("supabase status -o json", {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
