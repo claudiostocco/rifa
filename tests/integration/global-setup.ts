@@ -23,7 +23,7 @@ export default function setup(): () => void {
     });
   } catch {
     throw new Error(
-      "Supabase local indisponível. Antes de `pnpm test:int`, rode `supabase start` (ET-7)."
+      "Supabase local indisponível. Antes de `pnpm test:int`, rode `supabase start` (ET-7).",
     );
   }
 
@@ -35,7 +35,7 @@ export default function setup(): () => void {
 
   if (!url || !chaveAnon || !chaveService) {
     throw new Error(
-      "supabase status não retornou API_URL/ANON_KEY/SERVICE_ROLE_KEY — verifique o stack local (ET-7)."
+      "supabase status não retornou API_URL/ANON_KEY/SERVICE_ROLE_KEY — verifique o stack local (ET-7).",
     );
   }
 

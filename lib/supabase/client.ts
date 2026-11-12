@@ -18,12 +18,11 @@ export function criarClienteNavegador(): SupabaseClient<Database> {
 
   if (!url || !chaveAnon) {
     throw new Error(
-      "Configuração do Supabase ausente: defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY."
+      "Configuração do Supabase ausente: defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY.",
     );
   }
 
-  clienteSingleton =
-    clienteSingleton ?? createBrowserClient<Database>(url, chaveAnon);
+  clienteSingleton = clienteSingleton ?? createBrowserClient<Database>(url, chaveAnon);
 
   return clienteSingleton;
 }

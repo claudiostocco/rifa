@@ -26,7 +26,7 @@ beforeAll(() => {
 
   if (!url || !chaveAnon || !chaveService) {
     throw new Error(
-      "Variáveis de teste do Supabase ausentes. Rode `supabase start` antes de `pnpm test:int` (ET-7)."
+      "Variáveis de teste do Supabase ausentes. Rode `supabase start` antes de `pnpm test:int` (ET-7).",
     );
   }
 });

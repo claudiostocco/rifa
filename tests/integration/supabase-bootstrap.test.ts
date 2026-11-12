@@ -17,7 +17,7 @@ beforeAll(() => {
 
   if (!url || !chaveAnon) {
     throw new Error(
-      "Variáveis de teste do Supabase ausentes. Rode `supabase start` antes de `pnpm test:int` (ET-7)."
+      "Variáveis de teste do Supabase ausentes. Rode `supabase start` antes de `pnpm test:int` (ET-7).",
     );
   }
 });
@@ -36,18 +36,16 @@ describe("bootstrap dos clients Supabase contra Postgres real (ET-4/ET-7)", () =
   it("deve recusar escrita anon direta na tabela rifas (RLS §2.3 ativa)", async () => {
     const cliente = createClient<Database>(url, chaveAnon, { auth: { persistSession: false } });
 
-    const { error } = await cliente
-      .from("rifas")
-      .insert({
-        perfil_id: "00000000-0000-0000-0000-000000000000",
-        slug: "rifa-proibida-anon",
-        titulo: "Tentativa ilegal",
-        premio_descricao: "Qualquer",
-        premio_valor: 100,
-        numero_valor: 10,
-        quantidade: 25,
-        qtd_minima: 0,
-      });
+    const { error } = await cliente.from("rifas").insert({
+      perfil_id: "00000000-0000-0000-0000-000000000000",
+      slug: "rifa-proibida-anon",
+      titulo: "Tentativa ilegal",
+      premio_descricao: "Qualquer",
+      premio_valor: 100,
+      numero_valor: 10,
+      quantidade: 25,
+      qtd_minima: 0,
+    });
 
     // Sem sessão, RLS bloqueia inclusive com FK inexistente — violação de política.
     expect(error).not.toBeNull();

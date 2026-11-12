@@ -24,7 +24,7 @@ describe("bootstrap dos clients Supabase (ET-4)", () => {
     expect(typeof window).toBe("object");
 
     expect(() => criarClienteAdministrador()).toThrow(
-      /service_role não pode ser usada no navegador/
+      /service_role não pode ser usada no navegador/,
     );
   });
 

@@ -38,7 +38,7 @@ describe("FD-4 · tipos do banco gerados e helpers derivados", () => {
   it("deve cobrir o artefato gerado com as 6 tabelas public e a RPC sortear_rifa", () => {
     const artefato = readFileSync(
       path.resolve(process.cwd(), "lib", "supabase", "database.types.ts"),
-      "utf8"
+      "utf8",
     );
 
     for (const tabela of TABELAS_PUBLICAS) {
@@ -66,12 +66,7 @@ describe("FD-4 · tipos do banco gerados e helpers derivados", () => {
       Esperar<Igual<SorteioRow, Database["public"]["Tables"]["sorteios"]["Row"]>>,
       Esperar<Igual<RifaInsert, Database["public"]["Tables"]["rifas"]["Insert"]>>,
       Esperar<Igual<RifaUpdate, Database["public"]["Tables"]["rifas"]["Update"]>>,
-      Esperar<
-        Igual<
-          SortearRifaArgs,
-          Database["public"]["Functions"]["sortear_rifa"]["Args"]
-        >
-      >,
+      Esperar<Igual<SortearRifaArgs, Database["public"]["Functions"]["sortear_rifa"]["Args"]>>,
     ];
     // Provas[number] exige que TODOS os elementos sejam `true` (constraint)
     const provasOk: Esperar<Provas[number]> = true;

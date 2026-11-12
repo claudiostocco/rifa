@@ -16,7 +16,10 @@ export default function CarregandoPerfil() {
         <span className="sr-only">Carregando seu perfil…</span>
 
         <div className="mb-6 flex flex-col items-center gap-3">
-          <div aria-hidden="true" className="h-14 w-14 animate-pulse rounded-full bg-papel-escuro" />
+          <div
+            aria-hidden="true"
+            className="h-14 w-14 animate-pulse rounded-full bg-papel-escuro"
+          />
           <div aria-hidden="true" className="h-5 w-40 animate-pulse rounded bg-papel-escuro" />
           <div aria-hidden="true" className="h-4 w-64 animate-pulse rounded bg-papel-escuro" />
         </div>

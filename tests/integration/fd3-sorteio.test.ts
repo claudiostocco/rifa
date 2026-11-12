@@ -25,7 +25,7 @@ beforeAll(() => {
 
   if (!url || !chaveService) {
     throw new Error(
-      "Variáveis de teste do Supabase ausentes. Rode `supabase start` antes de `pnpm test:int` (ET-7)."
+      "Variáveis de teste do Supabase ausentes. Rode `supabase start` antes de `pnpm test:int` (ET-7).",
     );
   }
 });
@@ -69,13 +69,11 @@ describe("FD-3 · RPC sortear_rifa (transacional §2.4/§4.9)", () => {
     usuarioId = criado.user.id;
 
     // Comprador único reproduzido nas duas rifas com vendas (§5.2/RF-09)
-    const criarRifa = async (
-      config: {
-        slug: string;
-        status: "aberta" | "encerrada";
-        vendidos: number;
-      }
-    ) => {
+    const criarRifa = async (config: {
+      slug: string;
+      status: "aberta" | "encerrada";
+      vendidos: number;
+    }) => {
       const { data: rifa, error: erroRifa } = await client
         .from("rifas")
         .insert({

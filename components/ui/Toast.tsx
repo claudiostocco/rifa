@@ -22,12 +22,7 @@ const estilosPorTipo = {
  * Toast base (ET-9): mensagem em português, `role=status` acessível e
  * desaparece sozinho após a duração (com timer testável via fake timers).
  */
-export function Toast({
-  mensagem,
-  tipo = "neutro",
-  duracaoMs = 4000,
-  aoEncerrar,
-}: ToastProps) {
+export function Toast({ mensagem, tipo = "neutro", duracaoMs = 4000, aoEncerrar }: ToastProps) {
   React.useEffect(() => {
     if (duracaoMs <= 0) return;
 

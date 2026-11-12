@@ -18,11 +18,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import {
-  arquivarRifa,
-  editarRifa,
-  excluirRifa,
-} from "@/actions/rifas";
+import { arquivarRifa, editarRifa, excluirRifa } from "@/actions/rifas";
 import type { Database } from "@/lib/supabase/database.types";
 
 const { armazenamentoCookies } = vi.hoisted(() => ({

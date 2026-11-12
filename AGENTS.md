@@ -26,11 +26,11 @@ Você é um **engenheiro de software sênior** trabalhando em um projeto real de
 
 Leia/cumpra NESTA ordem. Cada arquivo tem um papel específico:
 
-| Ordem | Arquivo | Uso obrigatório |
-|---|---|---|
-| 1 | **`SPEC.md`** | Fonte única de verdade para regras de negócio (RN-01..RN-11), contratos de dados (DTOs, schema SQL, Server Actions), requisitos funcionais (RF-*) e não-funcionais (RNF-*), matriz de testes (§5.2) e Política de Testes. **Toda decisão de implementação deve citar/confirmar a seção da SPEC que o sustenta.** |
-| 2 | **`PLAN.md`** | Mapa de execução: a tarefa atual, dependências entre tarefas, marcos (Fase 0 → 5) e checklists de teste por tarefa. **Localiza aqui a próxima caixa a marcar e NUNCA pule fases ou dependências da ordem prescrita.** |
-| 3 | **`ESPECIFICACAO_TECNICA.md`** | Arquitetura referenciada: stack (Next.js LTS + TS + Tailwind + Supabase + Vercel + Zod), estrutura de diretórios (§5), Server Actions (§4), modelo de dados e RPC (§3), front-end (§6), segurança (§7), deploy (§8) |
+| Ordem | Arquivo                        | Uso obrigatório                                                                                                                                                                                                                                                                                                  |
+| ----- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | **`SPEC.md`**                  | Fonte única de verdade para regras de negócio (RN-01..RN-11), contratos de dados (DTOs, schema SQL, Server Actions), requisitos funcionais (RF-_) e não-funcionais (RNF-_), matriz de testes (§5.2) e Política de Testes. **Toda decisão de implementação deve citar/confirmar a seção da SPEC que o sustenta.** |
+| 2     | **`PLAN.md`**                  | Mapa de execução: a tarefa atual, dependências entre tarefas, marcos (Fase 0 → 5) e checklists de teste por tarefa. **Localiza aqui a próxima caixa a marcar e NUNCA pule fases ou dependências da ordem prescrita.**                                                                                            |
+| 3     | **`ESPECIFICACAO_TECNICA.md`** | Arquitetura referenciada: stack (Next.js LTS + TS + Tailwind + Supabase + Vercel + Zod), estrutura de diretórios (§5), Server Actions (§4), modelo de dados e RPC (§3), front-end (§6), segurança (§7), deploy (§8)                                                                                              |
 
 Note: `PRODUTO.md` v1.1 é background de produto (visão, persona, decisões 1–10) — já está consolidado na `SPEC.md`. **Se um conflito surgir entre documentos, a SPEC prevalece**; relate o conflito ao usuário (Seção 5).
 
@@ -43,6 +43,7 @@ Note: `PRODUTO.md` v1.1 é background de produto (visão, persona, decisões 1�
 Camada base: Matriz de Testes da `SPEC.md` §5.2 + Política de Testes no topo da SPEC. Estrutura da infra de testes: `Fase 0` do `PLAN.md`.
 
 ### 3.1 Regras absolutas
+
 1. **Mínimo 2 testes automatizados por recurso** (novo OU modificado):
    - **Teste 1** — caminho feliz (o caso válido mais representativo).
    - **Teste 2** — caso de borda, validação ou erro (o falho mais relevante).
@@ -58,16 +59,19 @@ Camada base: Matriz de Testes da `SPEC.md` §5.2 + Política de Testes no topo d
 6. **Testes bloqueiam MR:** CI roda lint → typecheck → test → test:int → build. Pipeline vermelho = NÃO considerar feito (mesmo que o código "pareça certo").
 
 ### 3.2 Localização e nomenclatura de testes
+
 ```
 tests/
   unit/           # espelha lib/ e actions/: e.g. tests/unit/formato.test.ts
   integration/    # banco real (Supabase CLI): RLS, RPC, concorrência
   e2e/            # Playwright por jornada: e.g. criar-vender-sortear.spec.ts
 ```
+
 - Nome de teste em pt-BR descritivo: `deve aceitar realizar venda em número disponível de rifa aberta`.
 - Cada teste mapeia um cenário da matriz §5.2 — proibido gerar enxames de testes genéricos desconectados da matriz.
 
 ### 3.3 O que NÃO é substituto de teste (anti-padrões)
+
 - ❌ Teste manual no browser "funcionou".
 - ❌ `expect(true).toBe(true)` / asserts triviais que sempre passam.
 - ❌ Mock completo do Supabase para testar RLS/Atomicidade/Realtime.
@@ -78,7 +82,9 @@ tests/
 ## 4. Convenções de Código e Estrutura
 
 ### 4.1 Stack e diretórios (conforme `ESPECIFICACAO_TECNICA.md` §5)
+
 A estrutura abaixo é fixa:
+
 ```
 rifa-app/
 ├── app/                 # rotas (App Router): layout, entrar, perfil, rifas/, r/[slug]/
@@ -89,19 +95,22 @@ rifa-app/
 ├── public/              # manifest.webmanifest, sw.js, icons/
 └── tests/               # unit/ integration/ e2e/
 ```
+
 - **A Stack é fechada:** PROIBIDO criar pastas ou instalar pacotes fora da stack definida na SPEC. Se uma dependência nova for realmente necessária → pare e avise o usuário (§5).
 
 ### 4.2 Nomenclatura
-| Contexto | Padrão | Exemplo |
-|---|---|---|
-| Funções (TS) | camelCase, verbo/substantivo | `registrarVenda`, `formatarNumero` |
-| Componentes React | PascalCase | `GradeNumeros`, `ModalVenda` |
-| Server Actions | camelCase, verbo de domínio | `criarRifa`, `encerrarVendas`, `sortear` |
-| Tabelas/colunas SQL | snake_case | `premio_valor`, `anulado_em` |
-| Valores de status (BD) | lowercase sem acento, conforme CHECK | `disponivel`, `aberta`, `origem='publico'` |
-| Estados de máquina | `lib/estados.ts` transições explícitas | `aberta→encerrada`, nunca `arquivada→sorteada` diretamente |
+
+| Contexto               | Padrão                                 | Exemplo                                                    |
+| ---------------------- | -------------------------------------- | ---------------------------------------------------------- |
+| Funções (TS)           | camelCase, verbo/substantivo           | `registrarVenda`, `formatarNumero`                         |
+| Componentes React      | PascalCase                             | `GradeNumeros`, `ModalVenda`                               |
+| Server Actions         | camelCase, verbo de domínio            | `criarRifa`, `encerrarVendas`, `sortear`                   |
+| Tabelas/colunas SQL    | snake_case                             | `premio_valor`, `anulado_em`                               |
+| Valores de status (BD) | lowercase sem acento, conforme CHECK   | `disponivel`, `aberta`, `origem='publico'`                 |
+| Estados de máquina     | `lib/estados.ts` transições explícitas | `aberta→encerrada`, nunca `arquivada→sorteada` diretamente |
 
 ### 4.3 Erros e validações
+
 - **Server Action sempre:**
   1. Zod payload input.
   2. Conferência de estado pela máquina em `lib/estados.ts` — valide no servidor; NUNCA confie só na UI.
@@ -111,14 +120,17 @@ rifa-app/
 - **Padrão otimista com rollback** para vendas na grade: pastilha muda na hora; se o servidor recusar → rollback + toast prescrito (SPEC §6).
 
 ### 4.4 Contratos de dados
+
 - Contratos de Request/Response estão na `SPEC.md` §4 (ex.: `CriarRifaInput`) — use-os EXATAMENTE (não adicione/remova campos sem atualizar primeiro a SPEC).
 
 ### 4.5 Performance & PWA
+
 - Grade paginada em blocos de 100 com navegação "‹ anterior/próxima ›" e células `aspect-ratio: 1` é padrão fixo para rifas de 1.000+ números.
 - Proibido carregar telefone/nome de compradores em tela pública — a grade da T4 mostra apenas ESTADOS, sem dados pessoais; verifique isso em todo PR que toque a leitura pública.
 - PWA: manifest + `sw.js` de shell — nunca quebrar a instalabilidade ao editar `layout.tsx`.
 
 ### 4.6 Commits e PRs
+
 - Conventional Commits: `feat:`, `fix:`, `test:`, `refactor:`, `docs:` — sujeito claro e em português quando natural.
 - Commits atômicos: 1 tarefa do `PLAN.md` = 1 MR = código + seus ≥ 2 testes + checkboxes `[x]` no `PLAN.md`.
 - No corpo da MR, declare: **quais testes foram adicionados** (Teste 1 / Teste 2) e **o checkpoint da fase** que a MR fecha.
@@ -128,18 +140,22 @@ rifa-app/
 ## 5. Fluxo de Interação com o Usuário
 
 ### 5.1 Antes de começar
+
 1. Ler `AGENTS.md`, `SPEC.md` e `PLAN.md` (na ordem da §2).
 2. Identificar a **próxima tarefa** no `PLAN.md` — a primeira caixa `- [ ]` não completada que já tem dependências anteriores resolvidas.
 3. Nunca "adiante" um marco pulando fases (Fases 0..5 formam um pipeline).
 
 ### 5.2 Durante o trabalho
+
 - **Alterações INCREMENTAIS:** uma mudança pequena por tarefa/evento. Nunca refazer em massa arquivos não-alvo; não reformatar/renomear código não tocado pela tarefa.
 - **Atualizar o `PLAN.md` ao fim de cada tarefa:** marcar cada subcaixa finalizada como `[x]` (incluindo as caixas de "Teste 1"/"Teste 2"). Se a tarefa não está 100% concluída, NÃO marque.
 - **Antes de decidir qualquer mudança que a SPEC não cobre** (biblioteca nova, convenção inédita, mudança de rota/tela, estado novo na máquina de estados) → **PARAR e AVISAR O USUÁRIO**, apresentando contexto, opções, riscos e recomendação. Decisões arquiteturais imprevistas NÃO podem ser tomadas unilateralmente por agentes.
 - **Lacunas/ambiguidades na SPEC** seguem o mesmo fluxo (questionar antes de inventar). Se um documento antigo (`PRODUTO.md`/`ESPECIFICACAO_TECNICA.md`) contradiz a SPEC (ex.: a Política de Testes), prevalece a SPEC — mas reporte o conflito ao usuário.
 
 ### 5.3 Ao apresentar o resultado da tarefa
+
 Reporte obrigatório, breve, no final:
+
 1. **O que foi implementado** (arquivos/funções).
 2. **Testes criados:** Teste 1 (caminho feliz) e Teste 2 (borda/erro) — com tipo (unit/int/E2E).
 3. **Execução da suíte:** comandos rodados + resultado (X passed / Y failed) — jamais declare sucesso se houver falhas.
@@ -166,7 +182,7 @@ escopo:                           [ ] nada fora da tarefa; ambiguidades escalada
 
 ---
 
-*Este documento complementa (não substitui) `SPEC.md` e `PLAN.md`. Mudanças comportamentais de produto/teste só entram via atualização da SPEC — e este arquivo deve ser atualizado em seguida.*
+_Este documento complementa (não substitui) `SPEC.md` e `PLAN.md`. Mudanças comportamentais de produto/teste só entram via atualização da SPEC — e este arquivo deve ser atualizado em seguida._
 
 <!-- BEGIN:nextjs-agent-rules -->
 
