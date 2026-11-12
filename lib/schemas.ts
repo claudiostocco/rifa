@@ -16,6 +16,16 @@ export type TamanhoRifa = (typeof TAMANHOS_RIFA)[number];
 export const ROTULOS_PREMIO = ["estimado", "mais_de", "ate"] as const;
 export type RotuloPremio = (typeof ROTULOS_PREMIO)[number];
 
+/**
+ * Guarda de runtime para o `premio_rotulo` que chega do banco: os tipos
+ * gerados pelo `supabase gen types` trazem a coluna como `string` puro (sem
+ * enum no Postgres — regra FD-4), então o cruzamento com o literal do
+ * contrato exige afunilamento explícito.
+ */
+export function eRotuloPremio(valor: string): valor is RotuloPremio {
+  return (ROTULOS_PREMIO as readonly string[]).includes(valor);
+}
+
 /** Limite do numeric(10,2) do schema (§2.4): 10 dígitos, 2 decimais. */
 const VALOR_BRL_MAXIMO = 99_999_999.99;
 

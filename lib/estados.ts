@@ -13,6 +13,22 @@ import type { NumeroRow, RifaRow } from "@/lib/supabase/tipos";
 export type StatusRifa = RifaRow["status"]; // 'aberta' | 'encerrada' | 'sorteada'
 export type StatusNumero = NumeroRow["status"]; // 'disponivel' | 'vendido'
 
+/** Rótulos de exibição por status (T1/T3 — §3.2: 🟢 Aberta · 🔒 Encerrada · 🎉 Sorteada). */
+export const ROTULO_STATUS: Record<StatusRifa, { icone: string; texto: string }> = {
+  aberta: { icone: "🟢", texto: "Aberta" },
+  encerrada: { icone: "🔒", texto: "Encerrada" },
+  sorteada: { icone: "🎉", texto: "Sorteada" },
+};
+
+/**
+ * `status` chega do banco como string (CHECK da migração 001, sem enum no
+ * Postgres — regra FD-4 de derivar dos tipos gerados); o Badge espera o
+ * literal. Valores fora dos 3 estados conhecidos caem no estilo neutro.
+ */
+export function tipoDoBadge(status: string): "aberta" | "encerrada" | "sorteada" | "neutro" {
+  return status === "aberta" || status === "encerrada" || status === "sorteada" ? status : "neutro";
+}
+
 /** Transições de rifa (§2.7). Completa por construção — o `typecheck` exige. */
 const TRANSICOES_RIFA: Record<StatusRifa, readonly StatusRifa[]> = {
   aberta: ["encerrada"],

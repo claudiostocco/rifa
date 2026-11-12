@@ -8,7 +8,7 @@ import { arquivarRifa, type EstadoAcao } from "@/actions/rifas";
 import { Badge } from "@/components/ui/Badge";
 import { classesBotaoPrimario } from "@/components/ui/Button";
 import { Toast } from "@/components/ui/Toast";
-import type { StatusRifa } from "@/lib/estados";
+import { ROTULO_STATUS, tipoDoBadge, type StatusRifa } from "@/lib/estados";
 import { formatarMoeda } from "@/lib/formato";
 
 /**
@@ -41,21 +41,6 @@ const FILTROS: readonly { valor: Filtro; rotulo: string }[] = [
   { valor: "encerrada", rotulo: "Encerradas" },
   { valor: "sorteada", rotulo: "Sorteadas" },
 ];
-
-const ROTULO_STATUS: Record<StatusRifa, { icone: string; texto: string }> = {
-  aberta: { icone: "🟢", texto: "Aberta" },
-  encerrada: { icone: "🔒", texto: "Encerrada" },
-  sorteada: { icone: "🎉", texto: "Sorteada" },
-};
-
-/**
- * `status` vem do banco como string (CHECK da migração 001, sem enum no
- * Postgres — regra FD-4 de derivar dos tipos gerados); o Badge espera o
- * literal. Valores fora dos 3 estados conhecidos caem no estilo neutro.
- */
-function tipoDoBadge(status: string): "aberta" | "encerrada" | "sorteada" | "neutro" {
-  return status === "aberta" || status === "encerrada" || status === "sorteada" ? status : "neutro";
-}
 
 /** Barra vendidos/total (§3.2): proporção com rótulo "0/100" e aria. */
 function BarraProgresso({ vendidos, quantidade }: { vendidos: number; quantidade: number }) {

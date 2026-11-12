@@ -6,6 +6,7 @@
  * chamam daqui só na renderização. Domínio telefônico: números brasileiros,
  * pois a máscara prescrita "(XX) XXXXX-XXXX" é a brasileira.
  */
+import type { RotuloPremio } from "@/lib/schemas";
 
 /** Limite operacional da coluna `numeros.numero` (CHECK da migração 001). */
 const NUMERO_MINIMO = 1;
@@ -165,4 +166,91 @@ export function formatarDataHora(instante: string | Date): string {
   // `year` do pt-BR já vem com 4 dígitos; `hour` pode ter espaço decorativo.
   const hora = (partes.get("hour") ?? "").trim();
   return `${partes.get("day")}/${partes.get("month")}/${partes.get("year")} ${hora}:${partes.get("minute")}`;
+}
+
+/* ---------------------------------------------------------------------- */
+/* FD-13 · digitação da T2 — máscara de moeda, quantidade e frase do prêmio */
+/* ---------------------------------------------------------------------- */
+
+const FORMATADOR_VALOR_DIGITACAO = new Intl.NumberFormat("pt-BR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const FORMATADOR_QUANTIDADE = new Intl.NumberFormat("pt-BR");
+
+/** Limite do numeric(10,2) (§2.4): 10 dígitos + 2 centavos. */
+const DIGITOS_MOEDA_MAXIMO = 10;
+
+/**
+ * Direção produção ← digitação (T2): aceita o texto com máscara pt-BR
+ * ("850,50", "R$ 850,50", "1.234,56") e devolve o número gravado em
+ * numeric(10,2). Valores já internacionais ("1234.56") passam ilesos; texto
+ * sem dígitos válidos vira NaN — quem chama decide entre recusar (Zod) ou
+ * tratar como campo vazio.
+ */
+export function valorDeTextoMoeda(texto: string): number {
+  const semMoeda = texto.replace(/^r\$/i, "").replace(/\s/g, "");
+  const normalizado = semMoeda.includes(",")
+    ? semMoeda.replace(/\./g, "").replace(",", ".")
+    : semMoeda;
+  return Number(normalizado);
+}
+
+/**
+ * Máscara progressiva de moeda ao digitar (T2): cada novo dígito entra como
+ * centavo — "8" → "0,08" ... "85050" → "850,50". Só formata: a validação de
+ * domínio (positivo, 2 casas, limite) é do contrato Zod no cliente e no
+ * servidor. Sem dígitos, devolve "" para o campo limpar de verdade.
+ */
+export function mascaraMoedaDigitacao(texto: string): string {
+  const digitos = texto
+    .replace(/\D/g, "")
+    .replace(/^0+(?=\d)/, "")
+    .slice(0, DIGITOS_MOEDA_MAXIMO);
+  if (digitos === "") return "";
+  return FORMATADOR_VALOR_DIGITACAO.format(Number(digitos) / 100);
+}
+
+/**
+ * Número do banco → texto de digitação da T2 ("850" → "850,00"): prefill do
+ * modo edição com o mesmo formato que a máscara produz (ida e volta fechada).
+ */
+export function formatarValorDigitacao(valor: number): string {
+  if (!Number.isFinite(valor)) {
+    throw new Error(`Informe um valor em reais válido (recebido: ${String(valor)})`);
+  }
+  return FORMATADOR_VALOR_DIGITACAO.format(valor);
+}
+
+/** Quantidade com agrupamento pt-BR ("1000" → "1.000") — decisões 3 e §3.4. */
+export function formatarQuantidade(quantidade: number): string {
+  if (!Number.isInteger(quantidade) || quantidade < 0) {
+    throw new Error(
+      `A quantidade deve ser um inteiro não negativo (recebido: ${String(quantidade)})`,
+    );
+  }
+  return FORMATADOR_QUANTIDADE.format(quantidade);
+}
+
+/**
+ * Frase do prêmio com o rótulo (§3.4.1 no T3 — "Forno elétrico — valor
+ * estimado R$ 850"; §3.5 na T4 — "Mais de R$ 500 — Forno elétrico"). Usada
+ * pela prévia em tempo real da T2, pelo cabeçalho do painel e pela tela
+ * pública: o organizador vê exatamente o que o comprador verá.
+ */
+export function formatarFrasePremio(
+  rotulo: RotuloPremio,
+  descricao: string,
+  valor: number,
+): string {
+  const moeda = formatarMoeda(valor); // lança em valor não finito (mesmo domínio da moeda)
+  switch (rotulo) {
+    case "mais_de":
+      return `Mais de ${moeda} — ${descricao}`;
+    case "ate":
+      return `Até ${moeda} — ${descricao}`;
+    default:
+      return `${descricao} — valor estimado ${moeda}`;
+  }
 }

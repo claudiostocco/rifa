@@ -10,12 +10,17 @@ import { describe, expect, it } from "vitest";
 import {
   formatarData,
   formatarDataHora,
+  formatarFrasePremio,
   formatarMoeda,
   formatarNumero,
+  formatarQuantidade,
   formatarTelefone,
   formatarTelefoneE164,
   formatarTelefoneOculto,
+  formatarValorDigitacao,
+  mascaraMoedaDigitacao,
   mascaraTelefoneDigitacao,
+  valorDeTextoMoeda,
 } from "@/lib/formato";
 
 /** "R$" e o valor vêm separados por espaço inquebrável do Intl. */
@@ -37,9 +42,7 @@ describe("FD-6 · lib/formato — formatação de exibição", () => {
     expect(formatarTelefoneE164("(11) 98888-7777")).toBe("+5511988887777");
     // A ida e a volta fecham o ciclo (formato exibido ↔ formato gravado).
     expect(formatarTelefone(formatarTelefoneE164("(11) 98888-7777"))).toBe("(11) 98888-7777");
-    expect(formatarTelefone(formatarTelefoneE164("(11) 3333-4444"))).toBe(
-      "(11) 3333-4444",
-    );
+    expect(formatarTelefone(formatarTelefoneE164("(11) 3333-4444"))).toBe("(11) 3333-4444");
   });
 
   it("deve recusar número fora de 1..5000, não inteiro, telefone inválido, moeda não finita e data inexistente com erro pt-BR", () => {
@@ -101,5 +104,56 @@ describe("FD-6 · lib/formato — formatação de exibição", () => {
     expect(mascaraTelefoneDigitacao("abc")).toBe("");
     // Nenhum dígito do meio é perdido pela máscara (composição com E164)
     expect(formatarTelefoneE164(mascaraTelefoneDigitacao("11988887777"))).toBe("+5511988887777");
+  });
+});
+
+describe("FD-13 · lib/formato — digitação da T2 (moeda, quantidade e frase do prêmio)", () => {
+  it("deve aplicar a máscara progressiva de centavos, o prefill da edição, a quantidade agrupada e a frase do prêmio (§3.4.1/§3.5)", () => {
+    // Digitação dígito a dígito (cada novo dígito entra como centavo)
+    expect(mascaraMoedaDigitacao("")).toBe("");
+    expect(mascaraMoedaDigitacao("8")).toBe("0,08");
+    expect(mascaraMoedaDigitacao("850")).toBe("8,50");
+    expect(mascaraMoedaDigitacao("85050")).toBe("850,50");
+    // Re-mascarar o texto já exibido fecha o ciclo de edição
+    expect(mascaraMoedaDigitacao("R$ 1.000,00")).toBe("1.000,00");
+    expect(mascaraMoedaDigitacao("99999999999999")).toBe("99.999.999,99"); // limite do numeric(10,2)
+
+    // Prefill do modo edição: mesmo formato que a máscara produz
+    expect(formatarValorDigitacao(850)).toBe("850,00");
+    expect(formatarValorDigitacao(10.5)).toBe("10,50");
+    // Ida e volta: banco → prefill → máscara → gravação
+    expect(formatarValorDigitacao(valorDeTextoMoeda(mascaraMoedaDigitacao("85050")))).toBe(
+      "850,50",
+    );
+
+    expect(formatarQuantidade(100)).toBe("100");
+    expect(formatarQuantidade(1000)).toBe("1.000");
+    expect(formatarQuantidade(5000)).toBe("5.000");
+
+    // Frase do prêmio por rótulo (o organizador vê o que o comprador verá);
+    // o Intl separa "R$" do valor com espaço inquebrável — normalizado igual
+    // ao restante da suíte.
+    expect(normalizar(formatarFrasePremio("estimado", "Forno elétrico", 850))).toBe(
+      "Forno elétrico — valor estimado R$ 850,00",
+    );
+    expect(normalizar(formatarFrasePremio("mais_de", "Forno elétrico", 500))).toBe(
+      "Mais de R$ 500,00 — Forno elétrico",
+    );
+    expect(normalizar(formatarFrasePremio("ate", "Cesta natalina", 250))).toBe(
+      "Até R$ 250,00 — Cesta natalina",
+    );
+  });
+
+  it("deve recusar valor não finito, quantidade não inteira/negativa e máscara vazia com erro em pt-BR", () => {
+    expect(() => formatarValorDigitacao(Number.NaN)).toThrow(/reais válido/);
+    expect(() => formatarValorDigitacao(Number.POSITIVE_INFINITY)).toThrow(/reais válido/);
+    // Mesmo domínio da moeda dentro da frase do prêmio
+    expect(() => formatarFrasePremio("estimado", "Forno", Number.NaN)).toThrow(/reais válido/);
+
+    expect(() => formatarQuantidade(25.5)).toThrow(/inteiro/);
+    expect(() => formatarQuantidade(-1)).toThrow(/não negativo/);
+
+    // Texto sem dígitos válidos vira NaN (contrato Zod recusa depois)
+    expect(Number.isNaN(valorDeTextoMoeda("sem número"))).toBe(true);
   });
 });

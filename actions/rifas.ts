@@ -26,19 +26,17 @@ import { revalidatePath } from "next/cache";
 
 import { AtualizarRifaInputSchema, CriarRifaInputSchema } from "@/lib/schemas";
 import type { AtualizarRifaInput } from "@/lib/schemas";
+import { valorDeTextoMoeda } from "@/lib/formato";
 import { gerarSlug } from "@/lib/slug";
 import { criarClienteAdministrador, criarClienteServidor } from "@/lib/supabase/server";
 import type { NumeroInsert, RifaInsert, RifaRow, RifaUpdate } from "@/lib/supabase/tipos";
 
 /** Estado consumido pelo `useActionState` do formulário T2 (FD-13). */
 export type EstadoRifa =
-  | { ok: true; mensagem: string; rifaId: string; slug: string }
-  | { ok: false; mensagem: string };
+  { ok: true; mensagem: string; rifaId: string; slug: string } | { ok: false; mensagem: string };
 
 /** Estado das ações sem rifa retornada (arquivar/excluir). */
-export type EstadoAcao =
-  | { ok: true; mensagem: string }
-  | { ok: false; mensagem: string };
+export type EstadoAcao = { ok: true; mensagem: string } | { ok: false; mensagem: string };
 
 type RifaCriada = Pick<RifaRow, "id" | "slug">;
 
@@ -54,20 +52,13 @@ function texto(formData: FormData, campo: string): string | undefined {
 
 /**
  * A UI digita valores em pt-BR (máscara de moeda da T2): "1.234,56" → 1234.56.
- * Valores já internacionais ("1234.56") passam ilesos; inválidos viram NaN.
+ * A conversão vive em `lib/formato.ts` (`valorDeTextoMoeda`, FD-13) para que
+ * o cliente valide com exatamente a mesma regra do servidor.
  */
-function converterValorNumerico(bruto: string): number {
-  const semMoeda = bruto.replace(/^r\$/i, "").replace(/\s/g, "");
-  const normalizado = semMoeda.includes(",")
-    ? semMoeda.replace(/\./g, "").replace(",", ".")
-    : semMoeda;
-  return Number(normalizado);
-}
-
 function numeroDe(formData: FormData, campo: string): number | undefined {
   const bruto = texto(formData, campo);
   if (bruto === undefined) return undefined;
-  const valor = converterValorNumerico(bruto);
+  const valor = valorDeTextoMoeda(bruto);
   // NaN não chega ao Zod: o contrato devolve a mensagem pt-BR do campo.
   return Number.isNaN(valor) ? undefined : valor;
 }
@@ -242,9 +233,7 @@ async function buscarRifaPropria(
 ): Promise<RifaPropria | null> {
   const { data, error } = await admin
     .from("rifas")
-    .select(
-      "id, slug, perfil_id, status, quantidade, qtd_minima, arquivada, excluida",
-    )
+    .select("id, slug, perfil_id, status, quantidade, qtd_minima, arquivada, excluida")
     .eq("id", rifaId)
     .maybeSingle();
   if (error || !data || data.perfil_id !== perfilId || data.excluida) {
@@ -258,10 +247,7 @@ async function buscarRifaPropria(
  * filtra): refez a numeração apagaria em cascata o histórico de vendas
  * removidas (RN-07). Retorna null quando a conferência falha no banco.
  */
-async function contarVendasDaRifa(
-  admin: ClienteAdmin,
-  rifaId: string,
-): Promise<number | null> {
+async function contarVendasDaRifa(admin: ClienteAdmin, rifaId: string): Promise<number | null> {
   const { data: numeros, error: erroNumeros } = await admin
     .from("numeros")
     .select("id")
@@ -319,16 +305,21 @@ async function ajustarNumeracao(
  * `dados` chega do client e é revalidado por Zod (nunca confiado). Só rifa
  * `aberta` é editável (§4.1); `quantidade` nova exige rifa sem vendas.
  */
-export async function editarRifa(
-  id: string,
-  dados: AtualizarRifaInput,
-): Promise<EstadoRifa> {
+export async function editarRifa(id: string, dados: AtualizarRifaInput): Promise<EstadoRifa> {
   const parse = AtualizarRifaInputSchema.safeParse(dados);
   if (!parse.success) {
     const problema = parse.error.issues[0];
     return { ok: false, mensagem: problema?.message ?? "Verifique os campos do formulário." };
   }
+  return executarEdicaoRifa(id, parse.data);
+}
 
+/**
+ * Núcleo da edição, pós-Zod (`parse.data` já validado). Separado da borda
+ * pública para que o adaptador do formulário T2 (`salvarEdicaoRifa`, FD-13)
+ * valide o FormData UMA vez e chegue aqui já com os literais afunilados.
+ */
+async function executarEdicaoRifa(id: string, dados: AtualizarRifaInput): Promise<EstadoRifa> {
   if (!PADRAO_UUID.test(id)) {
     return { ok: false, mensagem: RECUSA_NAO_ENCONTRADA };
   }
@@ -348,7 +339,7 @@ export async function editarRifa(
     return { ok: false, mensagem: "Somente rifas abertas podem ser editadas." };
   }
 
-  const quantidadeNova = parse.data.quantidade;
+  const quantidadeNova = dados.quantidade;
   const quantidadeMudou = quantidadeNova !== undefined && quantidadeNova !== rifa.quantidade;
 
   if (quantidadeMudou) {
@@ -361,7 +352,7 @@ export async function editarRifa(
     }
 
     // RN-05: a mínima (nova ou vigente) tem de caber na quantidade nova.
-    const minimaVigente = parse.data.qtd_minima ?? rifa.qtd_minima;
+    const minimaVigente = dados.qtd_minima ?? rifa.qtd_minima;
     if (minimaVigente > quantidadeNova) {
       return {
         ok: false,
@@ -371,18 +362,18 @@ export async function editarRifa(
   }
 
   const atualizacao: RifaUpdate = {};
-  if (parse.data.titulo !== undefined) atualizacao.titulo = parse.data.titulo;
-  if (parse.data.descricao !== undefined) atualizacao.descricao = parse.data.descricao;
-  if (parse.data.premio_descricao !== undefined) {
-    atualizacao.premio_descricao = parse.data.premio_descricao;
+  if (dados.titulo !== undefined) atualizacao.titulo = dados.titulo;
+  if (dados.descricao !== undefined) atualizacao.descricao = dados.descricao;
+  if (dados.premio_descricao !== undefined) {
+    atualizacao.premio_descricao = dados.premio_descricao;
   }
-  if (parse.data.premio_rotulo !== undefined) atualizacao.premio_rotulo = parse.data.premio_rotulo;
-  if (parse.data.premio_valor !== undefined) atualizacao.premio_valor = parse.data.premio_valor;
-  if (parse.data.numero_valor !== undefined) atualizacao.numero_valor = parse.data.numero_valor;
-  if (parse.data.quantidade !== undefined) atualizacao.quantidade = parse.data.quantidade;
-  if (parse.data.qtd_minima !== undefined) atualizacao.qtd_minima = parse.data.qtd_minima;
-  if (parse.data.imagem_url !== undefined) atualizacao.imagem_url = parse.data.imagem_url;
-  if (parse.data.data_prevista !== undefined) atualizacao.data_prevista = parse.data.data_prevista;
+  if (dados.premio_rotulo !== undefined) atualizacao.premio_rotulo = dados.premio_rotulo;
+  if (dados.premio_valor !== undefined) atualizacao.premio_valor = dados.premio_valor;
+  if (dados.numero_valor !== undefined) atualizacao.numero_valor = dados.numero_valor;
+  if (dados.quantidade !== undefined) atualizacao.quantidade = dados.quantidade;
+  if (dados.qtd_minima !== undefined) atualizacao.qtd_minima = dados.qtd_minima;
+  if (dados.imagem_url !== undefined) atualizacao.imagem_url = dados.imagem_url;
+  if (dados.data_prevista !== undefined) atualizacao.data_prevista = dados.data_prevista;
 
   // UPDATE primeiro: a numeração só é refeita com a rifa já consistente; se
   // ela falhar, a compensação devolve a linha ao estado anterior.
@@ -432,7 +423,10 @@ export async function arquivarRifa(id: string): Promise<EstadoAcao> {
 
   const { error } = await admin.from("rifas").update({ arquivada: true }).eq("id", id);
   if (error) {
-    return { ok: false, mensagem: "Não foi possível arquivar a rifa. Tente novamente em instantes." };
+    return {
+      ok: false,
+      mensagem: "Não foi possível arquivar a rifa. Tente novamente em instantes.",
+    };
   }
 
   revalidatePath("/rifas");
@@ -471,9 +465,60 @@ export async function excluirRifa(id: string): Promise<EstadoAcao> {
 
   const { error } = await admin.from("rifas").update({ excluida: true }).eq("id", id);
   if (error) {
-    return { ok: false, mensagem: "Não foi possível excluir a rifa. Tente novamente em instantes." };
+    return {
+      ok: false,
+      mensagem: "Não foi possível excluir a rifa. Tente novamente em instantes.",
+    };
   }
 
   revalidatePath("/rifas");
   return { ok: true, mensagem: "Rifa excluída com sucesso." };
+}
+
+/* ---------------------------------------------------------------------- */
+/* FD-13 · adaptador de formulário da edição (T2 · useActionState)         */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * Ponte entre o formulário T2 em modo edição e o contrato da SPEC §2.5
+ * (`editarRifa(id, dados)`): lê o `FormData` do `useActionState`, monta o
+ * `AtualizarRifaInput` e delega — a conferência de posse, estado (§4.1) e
+ * RN-09 continua toda na `editarRifa`, única porta de escrita.
+ *
+ * `descricao` sempre viaja quando o campo existe (o T2 envia mesmo vazio):
+ * "" limpa a coluna e a ausência (payload adulterado) não altera nada — o
+ * contrato parcial não distingue "não alterado" de "limpar". `data_prevista`
+ * e `imagem_url` só viajam preenchidos; limpar a data exigiria `null` no
+ * contrato (§4.4: mudança de contrato exige SPEC primeiro). O select de
+ * quantidade desabilitado (RN-09) nem chega ao FormData: sem o campo, o
+ * `editarRifa` trata como não alterado.
+ */
+export async function salvarEdicaoRifa(
+  _estadoAnterior: EstadoRifa | undefined,
+  formData: FormData,
+): Promise<EstadoRifa> {
+  const id = texto(formData, "id");
+  if (id === undefined) {
+    return { ok: false, mensagem: RECUSA_NAO_ENCONTRADA };
+  }
+
+  // Mesmo padrão da `criarRifa`: FormData → Zod UMA vez, com os campos vazios
+  // virando `undefined` para o contrato devolver a mensagem certa do campo.
+  const parse = AtualizarRifaInputSchema.safeParse({
+    titulo: texto(formData, "titulo"),
+    premio_descricao: texto(formData, "premio_descricao"),
+    premio_rotulo: texto(formData, "premio_rotulo"),
+    premio_valor: numeroDe(formData, "premio_valor"),
+    numero_valor: numeroDe(formData, "numero_valor"),
+    quantidade: numeroDe(formData, "quantidade"),
+    qtd_minima: numeroDe(formData, "qtd_minima"),
+    data_prevista: texto(formData, "data_prevista"),
+    ...(formData.has("descricao") ? { descricao: texto(formData, "descricao") ?? "" } : {}),
+  });
+  if (!parse.success) {
+    const problema = parse.error.issues[0];
+    return { ok: false, mensagem: problema?.message ?? "Verifique os campos do formulário." };
+  }
+
+  return executarEdicaoRifa(id, parse.data);
 }

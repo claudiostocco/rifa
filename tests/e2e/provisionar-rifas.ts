@@ -28,6 +28,11 @@ type OpcoesRifaDeTeste = {
   /** Quantidade de números 1..N marcados `vendido` (progresso da barra). */
   vendidos?: number;
   quantidade?: number;
+  /**
+   * Registra 1 venda real (comprador + linha em `vendas`): com QUALQUER venda
+   * a quantidade fica travada na edição (RN-09 — cenário do FD-13 Teste 2).
+   */
+  comVenda?: boolean;
 };
 
 function clienteAdmin() {
@@ -55,6 +60,16 @@ export async function limparRifasDeTeste(): Promise<void> {
 }
 
 /**
+ * Registra para limpeza uma rifa criada PELA UI (fluxo real da `criarRifa`,
+ * FD-13) e não por este módulo — o `afterAll` da spec leva a base local de
+ * volta ao estado íntegro exigido pelo ET-7 (o DELETE em cascata leva numeros
+ * e o histórico de vendas/compradores junto, migração 001).
+ */
+export function registrarRifaParaLimpeza(id: string): void {
+  rifasCriadas.push(id);
+}
+
+/**
  * Cria uma rifa completa (linha + numeração 1..N, RF-02) para o organizador
  * de teste, no formato que a `criarRifa` (FD-10) gravaria.
  */
@@ -64,6 +79,7 @@ export async function criarRifaDeTeste({
   arquivada = false,
   vendidos = 0,
   quantidade = 100,
+  comVenda = false,
 }: OpcoesRifaDeTeste): Promise<RifaDeTeste> {
   const admin = clienteAdmin();
 
@@ -119,6 +135,36 @@ export async function criarRifaDeTeste({
       .lte("numero", vendidos);
     if (erroVendas) {
       throw new Error(`Falha ao marcar vendidos de teste: ${JSON.stringify(erroVendas)}`);
+    }
+  }
+
+  if (comVenda) {
+    const { data: numero, error: erroNumero } = await admin
+      .from("numeros")
+      .select("id")
+      .eq("rifa_id", rifa.id)
+      .eq("numero", 1)
+      .single();
+    if (erroNumero || !numero) {
+      throw new Error(`Falha ao buscar número 1 de teste: ${JSON.stringify(erroNumero)}`);
+    }
+
+    const { data: comprador, error: erroComprador } = await admin
+      .from("compradores")
+      .insert({ rifa_id: rifa.id, nome: "Maria Silva", telefone: "+5511988887777" })
+      .select("id")
+      .single();
+    if (erroComprador || !comprador) {
+      throw new Error(`Falha ao criar comprador de teste: ${JSON.stringify(erroComprador)}`);
+    }
+
+    const { error: erroVenda } = await admin.from("vendas").insert({
+      numero_id: numero.id,
+      comprador_id: comprador.id,
+      origem: "organizador",
+    });
+    if (erroVenda) {
+      throw new Error(`Falha ao criar venda de teste: ${JSON.stringify(erroVenda)}`);
     }
   }
 

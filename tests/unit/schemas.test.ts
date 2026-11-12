@@ -9,10 +9,12 @@ import { describe, expect, it } from "vitest";
 import {
   AtualizarRifaInputSchema,
   CriarRifaInputSchema,
+  eRotuloPremio,
   PerfilInputSchema,
   ResultadoSorteioSchema,
   ROTULOS_PREMIO,
   VendaInputSchema,
+  type RotuloPremio,
 } from "@/lib/schemas";
 
 const payloadRifaValida = {
@@ -143,5 +145,28 @@ describe("FD-5 · lib/schemas — DTOs Zod", () => {
       titulo: "Rifa do Forno Novato",
     });
     expect(parseado.success).toBe(true);
+  });
+});
+
+describe("FD-13 · guarda eRotuloPremio (string do banco → literal do contrato)", () => {
+  it("deve reconhecer os 3 rótulos do domínio e afunilar o tipo", () => {
+    for (const rotulo of ROTULOS_PREMIO) {
+      expect(eRotuloPremio(rotulo)).toBe(true);
+    }
+    const rotulo: string = "mais_de";
+    if (eRotuloPremio(rotulo)) {
+      // Afunilamento provado: o tipo do valor narrowed é o literal do contrato.
+      const literal: RotuloPremio = rotulo;
+      expect(literal).toBe("mais_de");
+    } else {
+      expect.unreachable("mais_de deve ser reconhecido");
+    }
+  });
+
+  it("deve recusar valores fora do domínio do CHECK (não crasha a tela)", () => {
+    expect(eRotuloPremio("valor")).toBe(false);
+    expect(eRotuloPremio("")).toBe(false);
+    expect(eRotuloPremio("ESTIMADO")).toBe(false);
+    expect(eRotuloPremio("estimado ")).toBe(false);
   });
 });
