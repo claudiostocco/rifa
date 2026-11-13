@@ -28,6 +28,8 @@ type OpcoesRifaDeTeste = {
   /** Quantidade de números 1..N marcados `vendido` (progresso da barra). */
   vendidos?: number;
   quantidade?: number;
+  /** Data prevista (AAAA-MM-DD) exibida no cabeçalho da T3 (cenário VT-1). */
+  dataPrevista?: string;
   /**
    * Registra 1 venda real (comprador + linha em `vendas`): com QUALQUER venda
    * a quantidade fica travada na edição (RN-09 — cenário do FD-13 Teste 2).
@@ -80,6 +82,7 @@ export async function criarRifaDeTeste({
   vendidos = 0,
   quantidade = 100,
   comVenda = false,
+  dataPrevista,
 }: OpcoesRifaDeTeste): Promise<RifaDeTeste> {
   const admin = clienteAdmin();
 
@@ -111,6 +114,7 @@ export async function criarRifaDeTeste({
       slug,
       status,
       arquivada,
+      ...(dataPrevista ? { data_prevista: dataPrevista } : {}),
     })
     .select("id, slug, titulo")
     .single();

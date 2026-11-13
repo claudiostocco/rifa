@@ -23,16 +23,30 @@ export const metadata: Metadata = {
 
 type Props = { params: Promise<{ id: string }> };
 
+type AcaoRecusa = { texto: string; href: string };
+
 /** Recusa amigável em pt-BR — nunca o 404 default em inglês. */
-function Recusa({ mensagem }: { mensagem: string }) {
+function Recusa({
+  mensagem,
+  alerta = false,
+  acao = { texto: "Voltar às rifas", href: "/" },
+}: {
+  mensagem: string;
+  /** `true` em falha de rede/leitura: anunciada como `role=alert` (padrão FD-12). */
+  alerta?: boolean;
+  acao?: AcaoRecusa;
+}) {
   return (
-    <div className="rounded-card border border-linha bg-white px-6 py-10 text-center shadow-sm">
+    <div
+      role={alerta ? "alert" : undefined}
+      className="rounded-card border border-linha bg-white px-6 py-10 text-center shadow-sm"
+    >
       <p className="text-sm font-medium text-tinta">{mensagem}</p>
       <Link
-        href="/"
+        href={acao.href}
         className="mt-4 inline-flex min-h-[44px] items-center text-sm font-semibold text-marca underline underline-offset-2"
       >
-        Voltar às rifas
+        {acao.texto}
       </Link>
     </div>
   );
@@ -58,11 +72,26 @@ export default async function PaginaPainelRifa({ params }: Props) {
   }
 
   // RLS `rifas_organizador_le_proprias`: rifa de outro organizador chega vazia.
-  const { data: rifa } = await supabase
+  const { data: rifa, error: erroLeitura } = await supabase
     .from("rifas")
     .select("*")
     .eq("id", id)
     .maybeSingle<RifaRow>();
+
+  // Falha de rede/permissão ≠ rifa inexistente: estado de erro anunciado com
+  // `role=alert` e caminho de recuperação (recarregar reexecuta o Server
+  // Component) — nunca confunde com a recusa abaixo nem com o 404 default.
+  if (erroLeitura) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-12 pt-8">
+        <Recusa
+          alerta
+          mensagem="Não foi possível carregar a rifa. Verifique sua conexão e tente novamente."
+          acao={{ texto: "Recarregar", href: `/rifas/${id}` }}
+        />
+      </main>
+    );
+  }
   if (!rifa) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-12 pt-8">
