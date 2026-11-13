@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 
 import { arquivarRifa, type EstadoAcao } from "@/actions/rifas";
+import { BarraProgresso } from "@/components/BarraProgresso";
 import { Badge } from "@/components/ui/Badge";
 import { classesBotaoPrimario } from "@/components/ui/Button";
 import { Toast } from "@/components/ui/Toast";
@@ -41,32 +42,6 @@ const FILTROS: readonly { valor: Filtro; rotulo: string }[] = [
   { valor: "encerrada", rotulo: "Encerradas" },
   { valor: "sorteada", rotulo: "Sorteadas" },
 ];
-
-/** Barra vendidos/total (§3.2): proporção com rótulo "0/100" e aria. */
-function BarraProgresso({ vendidos, quantidade }: { vendidos: number; quantidade: number }) {
-  const percentual = quantidade > 0 ? Math.min(100, Math.round((vendidos / quantidade) * 100)) : 0;
-
-  return (
-    <>
-      <div
-        role="progressbar"
-        aria-label={`Progresso de vendas: ${vendidos} de ${quantidade} números vendidos`}
-        aria-valuemin={0}
-        aria-valuemax={quantidade}
-        aria-valuenow={vendidos}
-        className="h-1.5 flex-1 overflow-hidden rounded-full bg-papel-escuro"
-      >
-        <div
-          className="h-full rounded-full bg-verde-venda transition-[width] duration-300"
-          style={{ width: `${percentual}%` }}
-        />
-      </div>
-      <span className="shrink-0 text-xs font-medium text-tinta-suave">
-        {vendidos}/{quantidade}
-      </span>
-    </>
-  );
-}
 
 type MenuRifaProps = {
   rifa: RifaDoCartao;

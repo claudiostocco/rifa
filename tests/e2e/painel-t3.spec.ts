@@ -97,9 +97,82 @@ test.describe("VT-1 · T3 · Painel (estrutura)", () => {
     await expect(page.getByText("🟢 Aberta")).toHaveCount(0);
 
     // O painel segue entregando o link público e o botão copiar no mesmo cenário.
-    await expect(
-      page.getByText(new RegExp(`/r/${rifaEncerrada.slug}$`)),
-    ).toBeVisible();
+    await expect(page.getByText(new RegExp(`/r/${rifaEncerrada.slug}$`))).toBeVisible();
     await expect(page.getByRole("button", { name: "Copiar link público" })).toBeVisible();
+  });
+});
+
+/**
+ * VT-2 · Painel de resumo (exclusivo do T3 — SPEC §3.4.2, RF-04): vendidos/
+ * total com percentual, disponíveis, arrecadado e potencial, em streaming com
+ * skeleton. Os valores saem SEMPRE de `calcularResumo` (lib/resumo.ts) — o
+ * cenário de unidade/integração já prova os números; aqui é a entrega na tela.
+ */
+test.describe("VT-2 · T3 · Painel de resumo", () => {
+  test("deve exibir o resumo de rifa com 37 vendidos a R$ 10 como 37%, R$ 370,00 arrecadados e potencial R$ 1.000,00", async ({
+    page,
+  }) => {
+    const rifa = await criarRifaDeTeste({
+      titulo: "Resumo com 37 vendidos",
+      vendidos: 37,
+    });
+
+    await entrar(page);
+    await page.goto(`/rifas/${rifa.id}`);
+
+    // O resumo é a única região `region` "Resumo das vendas" da tela — o
+    // cabeçalho (VT-1) já mostra "Total potencial", então as asserções
+    // financeiras ficam dentro dela.
+    const resumo = page.getByRole("region", { name: "Resumo das vendas" });
+
+    await expect(resumo.getByText("37 de 100")).toBeVisible();
+    await expect(resumo.getByText("37%", { exact: true })).toBeVisible();
+    await expect(resumo.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "37");
+    await expect(resumo.getByText("Disponíveis")).toBeVisible();
+    await expect(resumo.getByText("63", { exact: true })).toBeVisible();
+    await expect(resumo.getByText("Arrecadado")).toBeVisible();
+    // O Intl separa "R$" do valor com espaço inquebrável (\s cobre \u00a0).
+    await expect(resumo.getByText(/R\$\s370,00/u)).toBeVisible();
+    await expect(resumo.getByText("Potencial")).toBeVisible();
+    await expect(resumo.getByText(/R\$\s1\.000,00/u)).toBeVisible();
+  });
+
+  test("deve exibir o resumo de rifa sem vendas como 0 de 100 (nunca estado de erro)", async ({
+    page,
+  }) => {
+    const rifa = await criarRifaDeTeste({ titulo: "Resumo sem vendas" });
+
+    await entrar(page);
+    await page.goto(`/rifas/${rifa.id}`);
+
+    const resumo = page.getByRole("region", { name: "Resumo das vendas" });
+
+    await expect(resumo.getByText("0 de 100")).toBeVisible();
+    await expect(resumo.getByText("0%", { exact: true })).toBeVisible();
+    await expect(resumo.getByText(/R\$\s0,00/u)).toBeVisible();
+
+    // Zero vendido não é falha de leitura: nenhum alerta de rede na tela.
+    // (O Next injeta um route announcer `role=alert` fora do main — o escopo
+    // é o conteúdo da própria página.)
+    await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
+  });
+
+  test("não deve entregar o painel (e o resumo) a visitante anônimo (RN-02/decisão 8)", async ({
+    browser,
+  }) => {
+    const rifa = await criarRifaDeTeste({
+      titulo: "Resumo protegido do anon",
+      vendidos: 37,
+    });
+
+    // Contexto novo, sem sessão: o proxy (FD-8) e o Server Component guardam a
+    // rota — o anon nunca recebe o DOM do resumo.
+    const anonima = await browser.newContext();
+    const page = await anonima.newPage();
+    await page.goto(`/rifas/${rifa.id}`);
+
+    await expect(page).toHaveURL(/\/entrar/);
+    await expect(page.getByRole("region", { name: "Resumo das vendas" })).toHaveCount(0);
+    await anonima.close();
   });
 });

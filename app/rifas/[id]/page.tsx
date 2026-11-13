@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import { BotaoCopiarLink } from "@/components/BotaoCopiarLink";
+import { EsqueletoResumo, ResumoRifa } from "@/components/ResumoRifa";
 import { Badge } from "@/components/ui/Badge";
 import { ROTULO_STATUS, tipoDoBadge } from "@/lib/estados";
 import {
@@ -57,7 +59,7 @@ function Recusa({
  * §2.8, §3.4.1). Entregue junto com a T2 (FD-13) por decisão do usuário:
  * o fluxo pós-criação prescrito em §4.1 é "redirect à T3 com o link público
  * e botão copiar", e sem esta rota o organizador cairia em 404. O restante do
- * painel (resumo financeiro, grade, ações por etapa) é a VT-1, na Fase 2.
+ * painel (grade, ações por etapa) seguem na Fase 2 (VT-3..VT-4).
  *
  * O rótulo do prêmio vem como `string` dos tipos gerados (regra FD-4): o
  * guarda `eRotuloPremio` afunila antes de formatar — valor fora do domínio do
@@ -161,6 +163,12 @@ export default async function PaginaPainelRifa({ params }: Props) {
       <div className="mt-6">
         <BotaoCopiarLink url={urlPublica} />
       </div>
+
+      {/* VT-2 · Painel de resumo (§3.4.2): em streaming com skeleton estável;
+          falha de leitura vira estado de erro próprio, nunca "zero vendidos". */}
+      <Suspense fallback={<EsqueletoResumo />}>
+        <ResumoRifa rifaId={rifa.id} quantidade={rifa.quantidade} numeroValor={rifa.numero_valor} />
+      </Suspense>
     </main>
   );
 }
