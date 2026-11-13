@@ -35,6 +35,12 @@ type OpcoesRifaDeTeste = {
    * a quantidade fica travada na edição (RN-09 — cenário do FD-13 Teste 2).
    */
   comVenda?: boolean;
+  /**
+   * Números marcados `vendido` COM venda vigente e comprador "Maria Silva"
+   * (cada número com comprador próprio para o prefill do modal T3a — VT-4).
+   * Complementa `vendidos` (contíguos 1..N sem venda gravada).
+   */
+  numerosVendidos?: number[];
 };
 
 function clienteAdmin() {
@@ -82,6 +88,7 @@ export async function criarRifaDeTeste({
   vendidos = 0,
   quantidade = 100,
   comVenda = false,
+  numerosVendidos = [],
   dataPrevista,
 }: OpcoesRifaDeTeste): Promise<RifaDeTeste> {
   const admin = clienteAdmin();
@@ -139,6 +146,50 @@ export async function criarRifaDeTeste({
       .lte("numero", vendidos);
     if (erroVendas) {
       throw new Error(`Falha ao marcar vendidos de teste: ${JSON.stringify(erroVendas)}`);
+    }
+  }
+
+  // VT-4: números vendidos com venda vigente e comprador próprio (prefill).
+  if (numerosVendidos.length > 0) {
+    const { data: alvos, error: erroAlvos } = await admin
+      .from("numeros")
+      .select("id, numero")
+      .eq("rifa_id", rifa.id)
+      .in("numero", numerosVendidos);
+    if (erroAlvos || !alvos || alvos.length !== numerosVendidos.length) {
+      throw new Error(`Falha ao buscar números vendidos de teste: ${JSON.stringify(erroAlvos)}`);
+    }
+
+    const { data: compradores, error: erroCompradores } = await admin
+      .from("compradores")
+      .insert([
+        { rifa_id: rifa.id, nome: "Maria Silva", telefone: "+5511988887777" },
+        { rifa_id: rifa.id, nome: "João Souza", telefone: "+5511999998888" },
+      ])
+      .select("id");
+    if (erroCompradores || !compradores) {
+      throw new Error(`Falha ao criar compradores de teste: ${JSON.stringify(erroCompradores)}`);
+    }
+
+    const { error: erroMarcado } = await admin
+      .from("numeros")
+      .update({ status: "vendido" })
+      .in(
+        "id",
+        alvos.map((alvo) => alvo.id),
+      );
+    if (erroMarcado) {
+      throw new Error(`Falha ao marcar números vendidos de teste: ${JSON.stringify(erroMarcado)}`);
+    }
+
+    const vendas = alvos.map((alvo, indice) => ({
+      numero_id: alvo.id,
+      comprador_id: compradores[indice % compradores.length].id,
+      origem: "organizador" as const,
+    }));
+    const { error: erroVendas } = await admin.from("vendas").insert(vendas);
+    if (erroVendas) {
+      throw new Error(`Falha ao criar vendas de teste: ${JSON.stringify(erroVendas)}`);
     }
   }
 

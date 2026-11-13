@@ -4,6 +4,17 @@ import { cookies } from "next/headers";
 import type { Database } from "@/lib/supabase/database.types";
 
 /**
+ * id do usuário da sessão httpOnly (ou null, quando expirou). Helper comum
+ * às Server Actions de escrita (rifas, vendas, ciclo, sorteio): a sessão é
+ * sempre conferida no servidor antes de tocar o banco (§2.2).
+ */
+export async function usuarioDaSessao(): Promise<string | null> {
+  const supabase = await criarClienteServidor();
+  const { data: sessao } = await supabase.auth.getUser();
+  return sessao?.user?.id ?? null;
+}
+
+/**
  * Client de leitura/escrita autenticada para Server Components e Server Actions.
  * Sessão via cookies httpOnly (@supabase/ssr) — sempre respeita as RLS.
  * `cookies()` é Promise no Next 16: o chamador precisa de `await`.

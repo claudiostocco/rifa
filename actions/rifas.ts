@@ -28,7 +28,11 @@ import { AtualizarRifaInputSchema, CriarRifaInputSchema } from "@/lib/schemas";
 import type { AtualizarRifaInput } from "@/lib/schemas";
 import { valorDeTextoMoeda } from "@/lib/formato";
 import { gerarSlug } from "@/lib/slug";
-import { criarClienteAdministrador, criarClienteServidor } from "@/lib/supabase/server";
+import {
+  criarClienteAdministrador,
+  criarClienteServidor,
+  usuarioDaSessao,
+} from "@/lib/supabase/server";
 import type { NumeroInsert, RifaInsert, RifaRow, RifaUpdate } from "@/lib/supabase/tipos";
 
 /** Estado consumido pelo `useActionState` do formulário T2 (FD-13). */
@@ -214,13 +218,6 @@ const RECUSA_VENDAS_QUANTIDADE =
   "A quantidade de números não pode ser alterada porque a rifa já tem vendas registradas.";
 const RECUSA_VENDAS_EXCLUSAO =
   "Esta rifa tem compras registradas. Você pode arquivá-la para preservar o histórico.";
-
-/** id do usuário da sessão httpOnly (ou null, quando expirou). */
-async function usuarioDaSessao(): Promise<string | null> {
-  const supabase = await criarClienteServidor();
-  const { data: sessao } = await supabase.auth.getUser();
-  return sessao?.user?.id ?? null;
-}
 
 /**
  * Lê a rifa conferindo posse (perfil_id da sessão) e visibilidade:

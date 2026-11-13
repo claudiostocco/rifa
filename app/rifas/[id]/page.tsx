@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { BotaoCopiarLink } from "@/components/BotaoCopiarLink";
+import { EsqueletoGrade } from "@/components/GradeNumeros";
+import { NumerosDaRifa } from "@/components/NumerosDaRifa";
 import { EsqueletoResumo, ResumoRifa } from "@/components/ResumoRifa";
 import { Badge } from "@/components/ui/Badge";
 import { ROTULO_STATUS, tipoDoBadge } from "@/lib/estados";
@@ -168,6 +170,12 @@ export default async function PaginaPainelRifa({ params }: Props) {
           falha de leitura vira estado de erro próprio, nunca "zero vendidos". */}
       <Suspense fallback={<EsqueletoResumo />}>
         <ResumoRifa rifaId={rifa.id} quantidade={rifa.quantidade} numeroValor={rifa.numero_valor} />
+      </Suspense>
+
+      {/* VT-4 · Grade de números + modal T3a (§3.4.4/§3.4.5): em streaming com
+          skeleton estável; leitura sob RLS com erro de rede próprio. */}
+      <Suspense fallback={<EsqueletoGrade />}>
+        <NumerosDaRifa rifaId={rifa.id} quantidade={rifa.quantidade} />
       </Suspense>
     </main>
   );
