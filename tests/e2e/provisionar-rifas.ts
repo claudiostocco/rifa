@@ -14,6 +14,8 @@ import { randomBytes } from "node:crypto";
 
 import { createClient } from "@supabase/supabase-js";
 
+import { slugBaseDeTitulo } from "@/lib/slug";
+
 import { CREDENCIAIS_ORGANIZADOR, lerStatusLocal } from "./provisionar-organizador";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -28,6 +30,14 @@ type OpcoesRifaDeTeste = {
   /** Quantidade de números 1..N marcados `vendido` (progresso da barra). */
   vendidos?: number;
   quantidade?: number;
+  /**
+   * SR-6 · prêmio personalizado (rótulo/valor/descrição) — a tela pública T5
+   * exibe a frase com rótulo ("Mais de R$ 500 — …"), então o E2E precisa de
+   * rifas fora do padrão "estimado 850" do provisionamento.
+   */
+  premioRotulo?: "estimado" | "mais_de" | "ate";
+  premioValor?: number;
+  premioDescricao?: string;
   /** Data prevista (AAAA-MM-DD) exibida no cabeçalho da T3 (cenário VT-1). */
   dataPrevista?: string;
   /**
@@ -106,6 +116,9 @@ export async function criarRifaDeTeste({
   numerosVendidos = [],
   vendidosComCompradores = [],
   vendidosComVendas = 0,
+  premioRotulo = "estimado",
+  premioValor = 850,
+  premioDescricao = "Forno elétrico",
   dataPrevista,
 }: OpcoesRifaDeTeste): Promise<RifaDeTeste> {
   const admin = clienteAdmin();
@@ -122,16 +135,19 @@ export async function criarRifaDeTeste({
 
   const sufixo = randomBytes(2).toString("hex");
   const tituloUnico = `${titulo} ${sufixo}`;
-  const slug = `${titulo.toLowerCase().replace(/\s+/g, "-")}-${sufixo}`;
+  // Mesma regra da `criarRifa` (FD-10): base sem acentos + sufixo — títulos
+  // com acento produzem slug ASCII navegável (descoberto na SR-7: "Revelação"
+  // gerava slug acentado e a T4/T5 anon não achava a rifa pela URL).
+  const slug = `${slugBaseDeTitulo(titulo)}-${sufixo}`;
 
   const { data: rifa, error: erroRifa } = await admin
     .from("rifas")
     .insert({
       perfil_id: usuario.id,
       titulo: tituloUnico,
-      premio_descricao: "Forno elétrico",
-      premio_rotulo: "estimado",
-      premio_valor: 850,
+      premio_descricao: premioDescricao,
+      premio_rotulo: premioRotulo,
+      premio_valor: premioValor,
       numero_valor: 10,
       quantidade,
       qtd_minima: 30,
@@ -433,9 +449,7 @@ export async function lerSorteioVigente(
   // Padrão da casa (actions/sorteio.ts): defensiva contra forma inesperada
   // do embed 1:1 do PostgREST.
   const numero = Array.isArray(data.numero) ? data.numero[0]?.numero : data.numero?.numero;
-  const nome = Array.isArray(data.compradores)
-    ? data.compradores[0]?.nome
-    : data.compradores?.nome;
+  const nome = Array.isArray(data.compradores) ? data.compradores[0]?.nome : data.compradores?.nome;
   if (typeof numero !== "number" || typeof nome !== "string") return null;
   return { numero, nome };
 }
@@ -452,6 +466,62 @@ export async function contarSorteiosVigentes(rifaId: string): Promise<number> {
     .eq("rifa_id", rifaId)
     .is("anulado_em", null);
   return count ?? 0;
+}
+
+/**
+ * SR-6 · sorteio DETERMINÍSTICO de um número da rifa provisionada: grava a
+ * linha em `sorteios` no mesmo formato que a RPC `sortear_rifa` grava (FD-3) —
+ * vencedor escolhido (ex.: o 047 de Maria) e `sorteado_em` fixo, pois o sorteio
+ * real é aleatório (RNF-07) e o E2E da T5 cruza a tela com o banco. A rifa
+ * precisa ter o número vendido COM venda vigente (`vendidosComCompradores`).
+ */
+export async function sortearNumeroDeTeste(
+  rifaId: string,
+  numero: number,
+  sorteadoEm = "2026-11-14T20:30:00+00:00",
+): Promise<void> {
+  const admin = clienteAdmin();
+
+  const { data: alvo, error: erroAlvo } = await admin
+    .from("numeros")
+    .select("id")
+    .eq("rifa_id", rifaId)
+    .eq("numero", numero)
+    .single();
+  if (erroAlvo || !alvo) {
+    throw new Error(
+      `Falha ao buscar número ${numero} do sorteio de teste: ${JSON.stringify(erroAlvo)}`,
+    );
+  }
+
+  const { data: venda, error: erroVenda } = await admin
+    .from("vendas")
+    .select("comprador_id")
+    .eq("numero_id", alvo.id)
+    .is("removida_em", null)
+    .single();
+  if (erroVenda || !venda) {
+    throw new Error(
+      `O número ${numero} não tem venda vigente para o sorteio de teste: ${JSON.stringify(erroVenda)}`,
+    );
+  }
+
+  const { count } = await admin
+    .from("vendas")
+    .select("id", { count: "exact", head: true })
+    .eq("numeros.rifa_id", rifaId)
+    .is("removida_em", null);
+
+  const { error: erroSorteio } = await admin.from("sorteios").insert({
+    rifa_id: rifaId,
+    numero_id: alvo.id,
+    comprador_id: venda.comprador_id,
+    total_vendidos: count ?? 0,
+    sorteado_em: sorteadoEm,
+  });
+  if (erroSorteio) {
+    throw new Error(`Falha ao gravar o sorteio de teste: ${JSON.stringify(erroSorteio)}`);
+  }
 }
 
 /** Credenciais fixas do organizador SEM rifas (cenário do empty state). */
