@@ -43,6 +43,7 @@ const RECUSA_SORTEADA =
   "O sorteio já foi realizado. Desfaça-o antes de alterar o histórico desta rifa.";
 const RECUSA_BANCO_REGISTRO =
   "Não foi possível registrar a venda agora. Tente novamente em instantes.";
+const RECUSA_SEM_VIGENTE = "Este número não tem venda vigente para editar.";
 
 /** Número com a rifa embutida — posse e estado conferidos antes de escrever. */
 type NumeroProprio = {
@@ -117,20 +118,35 @@ async function devolverNumero(
     .eq("status", "vendido");
 }
 
-/** Comprador da rifa já registrado com este telefone é reutilizado (sem duplicar). */
-async function compradorIdDaRifa(
+/**
+ * Comprador da rifa para o payload: linha existente com o MESMO telefone é
+ * reutilizada em vez de duplicar a pessoa na rifa e, se o nome divergiu, é
+ * regravado — mesmo telefone é a mesma pessoa (§4.6, "regrava nome/telefone"),
+ * então o nome deve consistir em todas as vendas dela na rifa.
+ */
+async function compradorDaRifa(
   admin: ReturnType<typeof criarClienteAdministrador>,
   rifaId: string,
   nome: string,
   telefone: string,
-): Promise<string | null> {
+): Promise<{ id: string } | null> {
   const { data: existente } = await admin
     .from("compradores")
-    .select("id")
+    .select("id, nome")
     .eq("rifa_id", rifaId)
     .eq("telefone", telefone)
     .maybeSingle();
-  if (existente) return existente.id;
+
+  if (existente) {
+    if (existente.nome !== nome) {
+      const { error } = await admin
+        .from("compradores")
+        .update({ nome })
+        .eq("id", existente.id);
+      if (error) return null;
+    }
+    return { id: existente.id };
+  }
 
   const { data: criado, error } = await admin
     .from("compradores")
@@ -138,7 +154,7 @@ async function compradorIdDaRifa(
     .select("id")
     .single();
   if (error || !criado) return null;
-  return criado.id;
+  return { id: criado.id };
 }
 
 /** Id da venda vigente do número (RF-06: editar/remover opera a vigente). */
@@ -187,15 +203,15 @@ export async function registrarVenda(payload: VendaInput): Promise<EstadoVenda> 
     return { ok: false, mensagem: RECUSA_CORRIDA };
   }
 
-  const compradorId = await compradorIdDaRifa(admin, numero.rifaId, nome, telefone);
-  if (!compradorId) {
+  const comprador = await compradorDaRifa(admin, numero.rifaId, nome, telefone);
+  if (!comprador) {
     await devolverNumero(admin, numeroId);
     return { ok: false, mensagem: RECUSA_BANCO_REGISTRO };
   }
 
   const { error: erroVenda } = await admin
     .from("vendas")
-    .insert({ numero_id: numeroId, comprador_id: compradorId, origem: "organizador" });
+    .insert({ numero_id: numeroId, comprador_id: comprador.id, origem: "organizador" });
 
   if (erroVenda) {
     await devolverNumero(admin, numeroId);
@@ -208,10 +224,17 @@ export async function registrarVenda(payload: VendaInput): Promise<EstadoVenda> 
 }
 
 /**
- * RF-06 · `editarVenda` — transfere o comprador da venda VIGENTE do número
- * (regrava nome/telefone na linha do comprador). A rifa `sorteada` é
- * recusada: o resultado do sorteio é auditável; desfazer (RF-15) é o caminho
- * prescrito para alterar o histórico depois do sorteio (§2.7/RN-08).
+ * RF-06 · `editarVenda` — transfere o comprador da venda VIGENTE do número.
+ *
+ * Decisão do usuário (VT-7, 14/11/2026): a transferência PRESERVA o histórico
+ * (matriz §5.2 RF-06 — "venda nova vigente"): a venda antiga ganha
+ * `removida_em` e uma venda NOVA aponta para o comprador do payload
+ * (reutilizado por (rifa_id, telefone)); o número PERMANECE `vendido`.
+ *
+ * A rifa `sorteada` é recusada: o resultado do sorteio é auditável; desfazer
+ * (RF-15) é o caminho prescrito para alterar o histórico depois do sorteio
+ * (§2.7/RN-08). Falha na venda nova restitui a venda antiga (compensação —
+ * nunca fica removida sem sucessora).
  */
 export async function editarVenda(payload: VendaInput): Promise<EstadoVenda> {
   const parse = VendaInputSchema.safeParse(payload);
@@ -233,21 +256,47 @@ export async function editarVenda(payload: VendaInput): Promise<EstadoVenda> {
   if (numero.statusRifa === "sorteada") {
     return { ok: false, mensagem: RECUSA_SORTEADA };
   }
+  if (numero.status !== "vendido") {
+    return { ok: false, mensagem: RECUSA_SEM_VIGENTE };
+  }
 
   const vendaId = await vendaVigenteId(admin, parse.data.numeroId);
   if (!vendaId) {
-    return { ok: false, mensagem: "Este número não tem venda vigente para editar." };
+    return { ok: false, mensagem: RECUSA_SEM_VIGENTE };
   }
 
-  const { error } = await admin
-    .from("compradores")
-    .update({ nome: parse.data.nome, telefone: parse.data.telefone })
-    .eq("id", vendaId);
-  if (error) {
-    return {
-      ok: false,
-      mensagem: "Não foi possível transferir a venda agora. Tente novamente em instantes.",
-    };
+  const comprador = await compradorDaRifa(admin, numero.rifaId, parse.data.nome, parse.data.telefone);
+  if (!comprador) {
+    return { ok: false, mensagem: RECUSA_BANCO_REGISTRO };
+  }
+
+  // Venda antiga sai de vigência. UPDATE condicional: 0 linhas = a venda
+  // vigente sumiu nesse meio-tempo (ex.: remoção concorrente) → recusa
+  // sem alteração, coerente com a conferência de corrida da VT-6.
+  const { data: removidas, error: erroRemover } = await admin
+    .from("vendas")
+    .update({ removida_em: new Date().toISOString() })
+    .eq("id", vendaId)
+    .is("removida_em", null)
+    .select("id");
+  if (erroRemover) {
+    return { ok: false, mensagem: RECUSA_BANCO_REGISTRO };
+  }
+  if (!removidas || removidas.length === 0) {
+    return { ok: false, mensagem: RECUSA_SEM_VIGENTE };
+  }
+
+  const { error: erroNova } = await admin
+    .from("vendas")
+    .insert({
+      numero_id: parse.data.numeroId,
+      comprador_id: comprador.id,
+      origem: "organizador",
+    });
+  if (erroNova) {
+    // Compensação: restitui a venda antiga — nunca fica removida sem sucessora.
+    await admin.from("vendas").update({ removida_em: null }).eq("id", vendaId);
+    return { ok: false, mensagem: RECUSA_BANCO_REGISTRO };
   }
 
   revalidatePath(`/rifas/${numero.rifaId}`);
