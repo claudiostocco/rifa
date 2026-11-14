@@ -163,7 +163,7 @@
 - [ ] **SR-4 · Aleatoriedade e distribuição (RNF-07)**
   - [ ] Teste 1 (int): N sorteios em rifas de amostra criadas para o teste → o vencedor está sempre dentro do conjunto de números vendidos, nunca de um disponível
   - [ ] Teste 2 (unit): geração NÃO usa `Math.random` (inspeção/lint) e a aleatoriedade criptográfica é demonstrável no código
-- [ ] **SR-5 · `RoletaSorteio` (RF-09a)** — animação no browser de 3–5s com primeiros nomes dos vendedores, desacelera no resultado já gravado pelo servidor
+- [ ] **SR-5 · `RoletaSorteio` (RF-09a)** — animação no browser de 3–5s com primeiros nomes dos vendedores, desacelera no resultado já gravado pelo servidor _(inclui a pendência registrada na SR-2+SR-3 (14/11/2026, aprovada pelo usuário): wiring da prop `numeroSorteado` da VT-3 na grade da T3 — `NumerosDaRifa` passa a ler o sorteio vigente e a pastilha do vencedor fica dourada 🏆; o destaque na grade pública T4 fica com a PB-1)_
   - [ ] Teste 1 (E2E): após confirmar, roleta aparece com os nomes e ao final T5 exibe o vencedor do banco
   - [ ] Teste 2 (unit): roleta sem participantes (borda) renderiza neutra, não bloqueia a gravação do resultado e honra prefers-reduced-motion
 - [ ] **SR-6 · T5 · Resultado (rota própria `/r/{slug}/resultado`)** — número, nome, 2 últimos dígitos do telefone, prêmio com rótulo, data/hora, copiar resultado
