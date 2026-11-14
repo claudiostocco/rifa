@@ -413,6 +413,47 @@ export async function venderNumeroDeTeste(
   }
 }
 
+/**
+ * SR-5 · leitura do sorteio VIGENTE (RN-08: `anulado_em IS NULL`) da rifa —
+ * o E2E da roleta cruza o que a animação exibiu com o que o servidor gravou
+ * (§4.9: "desacelera no número já retornado pelo servidor").
+ */
+export async function lerSorteioVigente(
+  rifaId: string,
+): Promise<{ numero: number; nome: string } | null> {
+  const admin = clienteAdmin();
+  const { data } = await admin
+    .from("sorteios")
+    .select("numero:numero_id (numero), compradores(nome)")
+    .eq("rifa_id", rifaId)
+    .is("anulado_em", null)
+    .maybeSingle();
+  if (!data) return null;
+
+  // Padrão da casa (actions/sorteio.ts): defensiva contra forma inesperada
+  // do embed 1:1 do PostgREST.
+  const numero = Array.isArray(data.numero) ? data.numero[0]?.numero : data.numero?.numero;
+  const nome = Array.isArray(data.compradores)
+    ? data.compradores[0]?.nome
+    : data.compradores?.nome;
+  if (typeof numero !== "number" || typeof nome !== "string") return null;
+  return { numero, nome };
+}
+
+/**
+ * SR-5 · contagem de sorteios VIGENTES da rifa — prova que a confirmação da
+ * roleta gravou UM resultado único no banco (RNF-06).
+ */
+export async function contarSorteiosVigentes(rifaId: string): Promise<number> {
+  const admin = clienteAdmin();
+  const { count } = await admin
+    .from("sorteios")
+    .select("id", { count: "exact", head: true })
+    .eq("rifa_id", rifaId)
+    .is("anulado_em", null);
+  return count ?? 0;
+}
+
 /** Credenciais fixas do organizador SEM rifas (cenário do empty state). */
 export const CREDENCIAIS_SEM_RIFAS = {
   email: "organizador-vazio@rifa.test",

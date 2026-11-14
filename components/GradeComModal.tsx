@@ -57,6 +57,11 @@ type Props = {
   quantidade: number;
   numeros: NumeroDaGrade[];
   vendas: VendaDaGrade[];
+  /**
+   * SR-5 · vencedor vigente (§2.7): destaque dourado 🏆 na grade da T3 —
+   * estado de EXIBIÇÃO lido do sorteio vigente (RN-08), nunca da tabela.
+   */
+  numeroSorteado?: number;
 };
 
 type Aviso = { mensagem: string; tipo: "sucesso" | "erro" };
@@ -67,7 +72,13 @@ type Otimismo = { de: StatusNumero; para: StatusNumero };
 /** §4.5 · texto prescrito da corrida — usado ao vivo (VT-9) e na recusa. */
 const NUMERO_VENDIDO_AO_VIVO = "Esse número acabou de ser vendido";
 
-export function GradeComModal({ rifaId, quantidade, numeros, vendas }: Props) {
+export function GradeComModal({
+  rifaId,
+  quantidade,
+  numeros,
+  vendas,
+  numeroSorteado,
+}: Props) {
   const router = useRouter();
   const [numeroSelecionado, setNumeroSelecionado] = useState<number | null>(null);
   const [erroServidor, setErroServidor] = useState<string | null>(null);
@@ -296,6 +307,7 @@ export function GradeComModal({ rifaId, quantidade, numeros, vendas }: Props) {
         <GradeNumeros
           numeros={numerosFiltrados}
           quantidade={quantidade}
+          numeroSorteado={numeroSorteado}
           numeroDestaque={numeroDestaque ?? undefined}
           aoTocarNumero={abrir}
         />

@@ -5,8 +5,10 @@
  * Teste 1 (caminho feliz): rifa encerrada com 82 vendidos → botão em destaque
  *   [🎉 Realizar Sorteio] abre a confirmação prescrita "O sorteio será feito
  *   entre 82 números vendidos." e, ao confirmar, o sorteio EXECUTA (SR-3
- *   delega à RPC): toast de sucesso e badge 🎉 Sorteada (a barra de ações
- *   some — etapa sorteada não tem ações do ciclo ainda).
+ *   delega à RPC): toast de sucesso imediato (a gravação não espera a
+ *   animação), a roleta (SR-5, RF-09a) gira sobre o resultado já gravado e,
+ *   ao fechá-la, o badge 🎉 Sorteada revela o painel (a barra de ações some —
+ *   etapa sorteada não tem ações do ciclo ainda).
  * Teste 2 (borda/bloqueio): sortear com 0 vendidos → bloqueio com a mensagem
  *   PRESCRITA "A rifa não tem números vendidos; o sorteio não pode ser
  *   realizado." e a rifa permanece encerrada (badge 🔒, F7).
@@ -72,14 +74,22 @@ test.describe("SR-2 · T3 · Confirmação do sorteio (F4)", () => {
       confirmacao.getByText("O sorteio será feito entre 82 números vendidos."),
     ).toBeVisible();
 
-    // Ao confirmar o sorteio EXECUTA (SR-3 → RPC transacional): badge 🎉.
+    // Ao confirmar o sorteio EXECUTA (SR-3 → RPC transacional): a gravação
+    // não espera a animação — toast prescrito imediato e a roleta (SR-5,
+    // RF-09a) gira sobre o resultado JÁ gravado, desacelerando nele.
     await confirmacao.getByRole("button", { name: "Confirmar" }).click();
     await expect(page.getByText("Sorteio realizado com sucesso.")).toBeVisible();
+    const roleta = page.getByRole("dialog");
+    await expect(
+      roleta.getByRole("heading", { name: "Resultado do sorteio" }),
+    ).toBeVisible({ timeout: 10_000 });
+    await roleta.getByRole("button", { name: "Voltar ao painel" }).click();
+
+    // Painel revelado: badge 🎉 e a barra de ações da etapa fora do DOM
+    // (SR-4/SR-6/SR-8 entregam as da etapa sorteada); a confirmação não deve
+    // permitir re-sortear.
     await expect(page.getByText("🎉 Sorteada")).toBeVisible();
     await expect(page.getByText("🔒 Encerrada")).toHaveCount(0);
-
-    // A etapa sorteada fica sem barra de ações do ciclo (SR-4/SR-6/SR-8
-    // entregam as dela); a confirmação não deve permitir re-sortear.
     await expect(page.getByRole("button", { name: "Realizar Sorteio" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Reabrir vendas" })).toHaveCount(0);
   });
