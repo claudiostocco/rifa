@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { AcoesCicloRifa, EsqueletoAcoes } from "@/components/AcoesCicloRifa";
 import { BotaoCopiarLink } from "@/components/BotaoCopiarLink";
 import { EsqueletoGrade } from "@/components/GradeNumeros";
 import { NumerosDaRifa } from "@/components/NumerosDaRifa";
@@ -176,6 +177,13 @@ export default async function PaginaPainelRifa({ params }: Props) {
           skeleton estável; leitura sob RLS com erro de rede próprio. */}
       <Suspense fallback={<EsqueletoGrade />}>
         <NumerosDaRifa rifaId={rifa.id} quantidade={rifa.quantidade} />
+      </Suspense>
+
+      {/* SR-1 · Barra de ações por etapa (§3.4.6, item 6): em streaming com
+          skeleton estável; falha de leitura vira estado de erro próprio
+          (padrão VT-1/VT-2). */}
+      <Suspense fallback={<EsqueletoAcoes />}>
+        <AcoesCicloRifa rifaId={rifa.id} status={rifa.status} qtdMinima={rifa.qtd_minima} />
       </Suspense>
     </main>
   );
