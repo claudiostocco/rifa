@@ -139,10 +139,7 @@ async function compradorDaRifa(
 
   if (existente) {
     if (existente.nome !== nome) {
-      const { error } = await admin
-        .from("compradores")
-        .update({ nome })
-        .eq("id", existente.id);
+      const { error } = await admin.from("compradores").update({ nome }).eq("id", existente.id);
       if (error) return null;
     }
     return { id: existente.id };
@@ -265,7 +262,12 @@ export async function editarVenda(payload: VendaInput): Promise<EstadoVenda> {
     return { ok: false, mensagem: RECUSA_SEM_VIGENTE };
   }
 
-  const comprador = await compradorDaRifa(admin, numero.rifaId, parse.data.nome, parse.data.telefone);
+  const comprador = await compradorDaRifa(
+    admin,
+    numero.rifaId,
+    parse.data.nome,
+    parse.data.telefone,
+  );
   if (!comprador) {
     return { ok: false, mensagem: RECUSA_BANCO_REGISTRO };
   }
@@ -286,13 +288,11 @@ export async function editarVenda(payload: VendaInput): Promise<EstadoVenda> {
     return { ok: false, mensagem: RECUSA_SEM_VIGENTE };
   }
 
-  const { error: erroNova } = await admin
-    .from("vendas")
-    .insert({
-      numero_id: parse.data.numeroId,
-      comprador_id: comprador.id,
-      origem: "organizador",
-    });
+  const { error: erroNova } = await admin.from("vendas").insert({
+    numero_id: parse.data.numeroId,
+    comprador_id: comprador.id,
+    origem: "organizador",
+  });
   if (erroNova) {
     // Compensação: restitui a venda antiga — nunca fica removida sem sucessora.
     await admin.from("vendas").update({ removida_em: null }).eq("id", vendaId);

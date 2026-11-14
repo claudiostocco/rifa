@@ -98,12 +98,11 @@ describe("VT-7 · editarVenda / removerVenda (SPEC §4.6)", () => {
     usuarioId = criado.user.id;
 
     // Segundo organizador: sessão PRÓPRIA para provar o limite de posse.
-    const { data: criadoOutro, error: erroCriarOutro } =
-      await clientServico.auth.admin.createUser({
-        email: emailOutro,
-        password: senha,
-        email_confirm: true,
-      });
+    const { data: criadoOutro, error: erroCriarOutro } = await clientServico.auth.admin.createUser({
+      email: emailOutro,
+      password: senha,
+      email_confirm: true,
+    });
     expect(erroCriarOutro).toBeNull();
     if (!criadoOutro?.user) throw new Error("2º organizador não provisionado (VT-7).");
     outroUsuarioId = criadoOutro.user.id;

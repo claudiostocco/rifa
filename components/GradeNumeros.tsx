@@ -58,11 +58,22 @@ type Props = {
   quantidade: number;
   /** Vencedor vigente (§2.7): destaque dourado 🏆 por cima do status da tabela. */
   numeroSorteado?: number;
+  /**
+   * VT-8 · número exato encontrado pela busca (§3.4.3/RF-07): anel de destaque
+   * por cima do estado — a pastilha segue tocável com seu rótulo normal.
+   */
+  numeroDestaque?: number;
   /** Ação do toque em qualquer pastilha (abrir modal — VT-4/PB-2). */
   aoTocarNumero: (numero: number) => void;
 };
 
-export function GradeNumeros({ numeros, quantidade, numeroSorteado, aoTocarNumero }: Props) {
+export function GradeNumeros({
+  numeros,
+  quantidade,
+  numeroSorteado,
+  numeroDestaque,
+  aoTocarNumero,
+}: Props) {
   const [blocoIndice, setBlocoIndice] = useState(0);
 
   // Fora da faixa 1..quantidade nunca renderiza (§3.4.4) e o formato pt-BR
@@ -112,6 +123,7 @@ export function GradeNumeros({ numeros, quantidade, numeroSorteado, aoTocarNumer
                 pastilha.numero === numeroSorteado ? "sorteado" : pastilha.status;
               const estilo = ESTILOS[estado];
               const numeroExibido = formatarNumero(pastilha.numero);
+              const emDestaque = pastilha.numero === numeroDestaque;
               return (
                 <button
                   key={pastilha.numero}
@@ -121,6 +133,8 @@ export function GradeNumeros({ numeros, quantidade, numeroSorteado, aoTocarNumer
                   className={[
                     "relative flex aspect-square items-center justify-center rounded-lg border text-sm font-semibold tabular-nums transition-colors",
                     estilo.celula,
+                    // VT-8: anel da busca vence visualmente sem trocar o estado.
+                    emDestaque ? "ring-2 ring-marca ring-offset-2" : "",
                   ].join(" ")}
                 >
                   {numeroExibido}

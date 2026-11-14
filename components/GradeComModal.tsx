@@ -25,10 +25,12 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { editarVenda, registrarVenda, removerVenda, type EstadoVenda } from "@/actions/vendas";
+import { BuscaFiltroGrade } from "@/components/BuscaFiltroGrade";
 import { GradeNumeros } from "@/components/GradeNumeros";
 import { ModalVenda } from "@/components/ModalVenda";
 import { Toast } from "@/components/ui/Toast";
 import type { StatusNumero } from "@/lib/estados";
+import { filtrarGrade, type FiltroEstado } from "@/lib/busca";
 
 export type NumeroDaGrade = { id: string; numero: number; status: StatusNumero };
 export type VendaDaGrade = { numero: number; nome: string; telefone: string };
@@ -50,6 +52,10 @@ export function GradeComModal({ quantidade, numeros, vendas }: Props) {
   const [numeroSelecionado, setNumeroSelecionado] = useState<number | null>(null);
   const [erroServidor, setErroServidor] = useState<string | null>(null);
   const [aviso, setAviso] = useState<Aviso | null>(null);
+  // VT-8 · busca e filtro locais (§3.4.3): filtram apenas a EXIBIÇÃO — o
+  // estado do banco nunca muda por aqui (a conferência é no servidor, §2.7).
+  const [busca, setBusca] = useState("");
+  const [filtro, setFiltro] = useState<FiltroEstado>("todos");
   // VT-6 · otimismo por número: `{ de, para }` — o `para` só substitui o
   // status ENQUANTO o servidor ainda exibir o `de` (estado pré-ação). Map
   // (não slot único) suporta mais de uma ação em voo sem colisão.
@@ -79,6 +85,20 @@ export function GradeComModal({ quantidade, numeros, vendas }: Props) {
           }),
     [numeros, otimistas],
   );
+
+  // VT-8 · busca + filtro derivados em render (sem effect), por CIMA do
+  // otimismo: o número em voo continua filtrável no estado antecipado.
+  const { visiveis: numerosFiltrados, destaque: numeroDestaque } = useMemo(
+    () => filtrarGrade(numerosExibidos, mapaVendas, busca, filtro),
+    [numerosExibidos, mapaVendas, busca, filtro],
+  );
+  const semResultado =
+    numerosFiltrados.length === 0 && (busca.trim().length > 0 || filtro !== "todos");
+
+  const limparBusca = () => {
+    setBusca("");
+    setFiltro("todos");
+  };
 
   const abrir = (numero: number) => {
     setErroServidor(null);
@@ -163,7 +183,44 @@ export function GradeComModal({ quantidade, numeros, vendas }: Props) {
 
   return (
     <div aria-busy={pendente}>
-      <GradeNumeros numeros={numerosExibidos} quantidade={quantidade} aoTocarNumero={abrir} />
+      {numeros.length > 0 ? (
+        <div className="mb-3">
+          <BuscaFiltroGrade
+            busca={busca}
+            filtro={filtro}
+            aoDigitar={setBusca}
+            aoFiltrar={setFiltro}
+          />
+        </div>
+      ) : null}
+
+      {semResultado ? (
+        <div
+          role="status"
+          className="rounded-card border border-linha bg-white px-6 py-10 text-center shadow-sm"
+        >
+          <p className="text-sm font-medium text-tinta">
+            Nenhum número encontrado{busca.trim() ? ` para "${busca.trim()}"` : ""}.
+          </p>
+          <p className="mt-1 text-sm text-tinta-suave">
+            Ajuste a busca ou o filtro para ver a grade completa.
+          </p>
+          <button
+            type="button"
+            onClick={limparBusca}
+            className="mt-4 min-h-[44px] rounded-full border border-marca px-5 text-sm font-semibold text-marca transition-colors hover:bg-marca-suave"
+          >
+            Limpar busca e filtros
+          </button>
+        </div>
+      ) : (
+        <GradeNumeros
+          numeros={numerosFiltrados}
+          quantidade={quantidade}
+          numeroDestaque={numeroDestaque ?? undefined}
+          aoTocarNumero={abrir}
+        />
+      )}
 
       {selecionado ? (
         <ModalVenda

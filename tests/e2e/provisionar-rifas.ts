@@ -41,6 +41,14 @@ type OpcoesRifaDeTeste = {
    * Complementa `vendidos` (contíguos 1..N sem venda gravada).
    */
   numerosVendidos?: number[];
+  /**
+   * VT-8 · mapa DETERMINÍSTICO de comprador por número (a alternativa
+   * `numerosVendidos` alterna os compradores pela ordem do banco, que não é
+   * garantida — aqui quem comprou o quê é explícito: essencial para as buscas
+   * por nome/telefone da RF-07). Compradores são deduplicados por telefone,
+   * como a `registrarVenda` (VT-5) faria.
+   */
+  vendidosComCompradores?: Array<{ numero: number; nome: string; telefone: string }>;
 };
 
 function clienteAdmin() {
@@ -89,6 +97,7 @@ export async function criarRifaDeTeste({
   quantidade = 100,
   comVenda = false,
   numerosVendidos = [],
+  vendidosComCompradores = [],
   dataPrevista,
 }: OpcoesRifaDeTeste): Promise<RifaDeTeste> {
   const admin = clienteAdmin();
@@ -187,6 +196,64 @@ export async function criarRifaDeTeste({
       comprador_id: compradores[indice % compradores.length].id,
       origem: "organizador" as const,
     }));
+    const { error: erroVendas } = await admin.from("vendas").insert(vendas);
+    if (erroVendas) {
+      throw new Error(`Falha ao criar vendas de teste: ${JSON.stringify(erroVendas)}`);
+    }
+  }
+
+  // VT-8: números vendidos com comprador EXPLÍCITO por número (busca RF-07).
+  if (vendidosComCompradores.length > 0) {
+    const { data: alvos, error: erroAlvos } = await admin
+      .from("numeros")
+      .select("id, numero")
+      .eq("rifa_id", rifa.id)
+      .in(
+        "numero",
+        vendidosComCompradores.map((alvo) => alvo.numero),
+      );
+    if (erroAlvos || !alvos || alvos.length !== vendidosComCompradores.length) {
+      throw new Error(`Falha ao buscar números vendidos de teste: ${JSON.stringify(erroAlvos)}`);
+    }
+
+    // Comprador deduplicado por telefone (mesma pessoa da rifa — padrão VT-5).
+    const compradoresPorTelefone = new Map<string, string>();
+    for (const alvo of vendidosComCompradores) {
+      if (!compradoresPorTelefone.has(alvo.telefone)) {
+        const { data: criado, error: erroComprador } = await admin
+          .from("compradores")
+          .insert({ rifa_id: rifa.id, nome: alvo.nome, telefone: alvo.telefone })
+          .select("id")
+          .single();
+        if (erroComprador || !criado) {
+          throw new Error(`Falha ao criar comprador de teste: ${JSON.stringify(erroComprador)}`);
+        }
+        compradoresPorTelefone.set(alvo.telefone, criado.id);
+      }
+    }
+
+    const { error: erroMarcado } = await admin
+      .from("numeros")
+      .update({ status: "vendido" })
+      .in(
+        "id",
+        alvos.map((alvo) => alvo.id),
+      );
+    if (erroMarcado) {
+      throw new Error(`Falha ao marcar números vendidos de teste: ${JSON.stringify(erroMarcado)}`);
+    }
+
+    const vendas = alvos.map((alvo) => {
+      const pedido = vendidosComCompradores.find((item) => item.numero === alvo.numero);
+      if (!pedido) {
+        throw new Error(`Número ${alvo.numero} sem comprador definido no provisionamento.`);
+      }
+      const compradorId = compradoresPorTelefone.get(pedido.telefone);
+      if (!compradorId) {
+        throw new Error(`Comprador do número ${alvo.numero} não provisionado.`);
+      }
+      return { numero_id: alvo.id, comprador_id: compradorId, origem: "organizador" as const };
+    });
     const { error: erroVendas } = await admin.from("vendas").insert(vendas);
     if (erroVendas) {
       throw new Error(`Falha ao criar vendas de teste: ${JSON.stringify(erroVendas)}`);
