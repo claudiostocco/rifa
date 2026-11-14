@@ -227,6 +227,61 @@ export async function criarRifaDeTeste({
   return rifa;
 }
 
+/**
+ * VT-6 · Venda direta de um número DEPOIS da rifa provisionada — simula o
+ * "outro consultor" que vendeu o número 1s antes do organizador salvar
+ * (corrida do RN-03). Grava comprador + venda vigente + virada do número,
+ * no mesmo formato que a `registrarVenda` (VT-5) grava. A rifa alvo já deve
+ * ter sido criada por `criarRifaDeTeste` (a limpeza do `afterAll` a leva,
+ * com este histórico junto, em cascata).
+ */
+export async function venderNumeroDeTeste(
+  rifaId: string,
+  numero: number,
+  comprador: { nome: string; telefone: string; origem?: "organizador" | "publico" },
+): Promise<void> {
+  const admin = clienteAdmin();
+
+  const { data: alvo, error: erroAlvo } = await admin
+    .from("numeros")
+    .select("id")
+    .eq("rifa_id", rifaId)
+    .eq("numero", numero)
+    .single();
+  if (erroAlvo || !alvo) {
+    throw new Error(
+      `Falha ao buscar número ${numero} para a venda de teste: ${JSON.stringify(erroAlvo)}`,
+    );
+  }
+
+  const { data: compradorCriado, error: erroComprador } = await admin
+    .from("compradores")
+    .insert({ rifa_id: rifaId, nome: comprador.nome, telefone: comprador.telefone })
+    .select("id")
+    .single();
+  if (erroComprador || !compradorCriado) {
+    throw new Error(`Falha ao criar comprador de teste: ${JSON.stringify(erroComprador)}`);
+  }
+
+  const { error: erroNumero } = await admin
+    .from("numeros")
+    .update({ status: "vendido" })
+    .eq("id", alvo.id)
+    .eq("status", "disponivel");
+  if (erroNumero) {
+    throw new Error(`Falha ao marcar o número vendido de teste: ${JSON.stringify(erroNumero)}`);
+  }
+
+  const { error: erroVenda } = await admin.from("vendas").insert({
+    numero_id: alvo.id,
+    comprador_id: compradorCriado.id,
+    origem: comprador.origem ?? "organizador",
+  });
+  if (erroVenda) {
+    throw new Error(`Falha ao criar a venda de teste: ${JSON.stringify(erroVenda)}`);
+  }
+}
+
 /** Credenciais fixas do organizador SEM rifas (cenário do empty state). */
 export const CREDENCIAIS_SEM_RIFAS = {
   email: "organizador-vazio@rifa.test",

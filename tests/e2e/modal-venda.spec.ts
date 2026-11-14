@@ -12,11 +12,16 @@
  * FD-12/VT-1) com números vendidos COM venda vigente e comprador (opção
  * `numerosVendidos`) — o prefill do modal precisa dos dados de comprador.
  * O `afterAll` restaura a base íntegra exigida pelo ET-7.
+ *
+ * O bloco final cobre o extra E2E da VT-6 (concorrência no mesmo número,
+ * RN-03): consultor vende o nº 1s antes → recusa prescrita com rollback da
+ * pastilha otimista e toast (o Teste 2 do VT-6, unit, está em
+ * tests/unit/ui/grade-com-modal.test.tsx).
  */
 import { expect, test, type Page } from "@playwright/test";
 
 import { CREDENCIAIS_ORGANIZADOR, provisionarOrganizador } from "./provisionar-organizador";
-import { criarRifaDeTeste, limparRifasDeTeste } from "./provisionar-rifas";
+import { criarRifaDeTeste, limparRifasDeTeste, venderNumeroDeTeste } from "./provisionar-rifas";
 
 test.beforeAll(async () => {
   await provisionarOrganizador();
@@ -152,5 +157,56 @@ test.describe("VT-4 · T3a · Validação e remoção", () => {
     await expect(page.getByText("Venda removida com sucesso.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Número 001, disponível" })).toBeVisible();
     await expect(resumo.getByText("2 de 100")).toBeVisible();
+  });
+});
+
+test.describe("VT-6 · Concorrência no mesmo número (RN-03)", () => {
+  /**
+   * Extra E2E do VT-6 (o Teste 2 unit está em grade-com-modal.test.tsx): o
+   * consultor vende o 037 DEPOIS de a tela do organizador ter carregado e
+   * ANTES do Salvar ("1s antes"). O servidor recusa com o toast prescrito e a
+   * pastilha otimista faz rollback. O estado "vendido" do consultor na grade
+   * chega ao vivo pela VT-9 (realtime) — aqui a tela segue nos dados do
+   * servidor do momento do carregamento.
+   */
+  test("deve recusar venda em número vendido 1s antes por outro consultor com rollback da pastilha e toast prescrito", async ({
+    page,
+  }) => {
+    const rifa = await criarRifaDeTeste({
+      titulo: "Modal recusa a corrida",
+      numerosVendidos: [1, 2, 3],
+    });
+
+    await entrar(page);
+    await page.goto(`/rifas/${rifa.id}`);
+
+    const resumo = page.getByRole("region", { name: "Resumo das vendas" });
+    await expect(resumo.getByText("3 de 100")).toBeVisible();
+
+    // O organizador abre o 037 como DISPONÍVEL (dados do carregamento)…
+    await page.getByRole("button", { name: "Número 037, disponível" }).click();
+    const modal = page.getByRole("dialog");
+    await expect(modal.getByRole("heading", { name: "Número 037" })).toBeVisible();
+    await modal.getByLabel("Nome").fill("João Pereira");
+    await modal.getByLabel("Telefone").fill("(11) 97777-6666");
+
+    // …e, 1s antes do Salvar, o consultor vende o 037 (via administrativa,
+    // origem 'publico' — exatamente o que a T4/PB-2 grava).
+    await venderNumeroDeTeste(rifa.id, 37, {
+      nome: "Ana Ribeiro",
+      telefone: "+5511966665555",
+      origem: "publico",
+    });
+
+    await modal.getByRole("button", { name: "Salvar" }).click();
+
+    // Recusa prescrita (§4.5): toast de erro + alerta inline, modal aberto.
+    await expect(page.getByRole("status")).toContainText("Esse número acabou de ser vendido");
+    await expect(modal.getByRole("alert")).toContainText("Esse número acabou de ser vendido");
+
+    // Rollback: a pastilha volta a disponível (estado do servidor do
+    // carregamento) e o resumo permanece inalterado — nada foi gravado 2×.
+    await expect(page.getByRole("button", { name: "Número 037, disponível" })).toBeVisible();
+    await expect(resumo.getByText("3 de 100")).toBeVisible();
   });
 });

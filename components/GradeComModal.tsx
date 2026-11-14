@@ -1,13 +1,25 @@
 "use client";
 
 /**
- * VT-4 · Cola da grade com o modal T3a (SPEC §3.4.4/§3.4.5): recebe do Server
- * Component os números (id/estado) e as vendas vigentes com o comprador, e
- * despacha as Server Actions de venda (VT-5). O feedback segue o padrão da
- * casa: sucesso fecha o modal, mostra Toast pt-BR e revalida o painel
- * (`router.refresh()` — grade e resumo re-renderizam no servidor); falha
- * volta para o modal como `role=alert` (corrida, sessão, banco — nunca
- * engolida). O padrão otimista com rollback é a VT-6.
+ * VT-4/VT-6 · Cola da grade com o modal T3a (SPEC §3.4.4/§3.4.5): recebe do
+ * Server Component os números (id/estado) e as vendas vigentes com o
+ * comprador, e despacha as Server Actions de venda (VT-5). O feedback segue o
+ * padrão da casa: sucesso fecha o modal, mostra Toast pt-BR e revalida o
+ * painel (`router.refresh()` — grade e resumo re-renderizam no servidor).
+ *
+ * VT-6 · Padrão otimista com rollback (SPEC §6/§3.4.5/§4.5): ao salvar uma
+ * venda a pastilha muda NA HORA (verde ✓ antes da resposta do servidor); se o
+ * servidor recusar — o consultor vendeu o número 1s antes (RN-03, corrida) —
+ * a pastilha volta ao estado do servidor com rollback + toast prescrito
+ * ("Esse número acabou de ser vendido"), e o alerta inline do modal segue
+ * visível (recusa de Server Action nunca é engolida, VT-4).
+ *
+ * O override otimista é CONDICIONAL ao estado pré-ação (`de`): só vale
+ * enquanto o servidor ainda exibe o estado anterior. Assim que o servidor
+ * refletir a ação (refresh/revalidação) — ou mudar por conta própria
+ * (realtime da VT-9) — o estado do servidor vence. Reconciliação sem effect,
+ * sem flicker e sem jamais mascarar o banco: a UI não é fonte de verdade
+ * (§2.7 — a conferência é sempre no servidor).
  */
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -30,11 +42,18 @@ type Props = {
 
 type Aviso = { mensagem: string; tipo: "sucesso" | "erro" };
 
+/** VT-6 · override otimista: só vale enquanto o servidor exibir `de` (§2.7). */
+type Otimismo = { de: StatusNumero; para: StatusNumero };
+
 export function GradeComModal({ quantidade, numeros, vendas }: Props) {
   const router = useRouter();
   const [numeroSelecionado, setNumeroSelecionado] = useState<number | null>(null);
   const [erroServidor, setErroServidor] = useState<string | null>(null);
   const [aviso, setAviso] = useState<Aviso | null>(null);
+  // VT-6 · otimismo por número: `{ de, para }` — o `para` só substitui o
+  // status ENQUANTO o servidor ainda exibir o `de` (estado pré-ação). Map
+  // (não slot único) suporta mais de uma ação em voo sem colisão.
+  const [otimistas, setOtimistas] = useState<Map<number, Otimismo>>(new Map());
   // useTransition com callback assíncrono — mesmo padrão da lista T1 (FD-12).
   const [pendente, iniciarPendente] = useTransition();
 
@@ -43,6 +62,23 @@ export function GradeComModal({ quantidade, numeros, vendas }: Props) {
     [numeros],
   );
   const mapaVendas = useMemo(() => new Map(vendas.map((venda) => [venda.numero, venda])), [vendas]);
+
+  // VT-6 · a grade recebe servidor + otimismo: o número em voo exibe o estado
+  // antecipado enquanto o servidor ainda mostra o pré-ação; quando o servidor
+  // reflete a ação (ou muda por conta própria), o estado do servidor vence —
+  // reconciliação derivada em render, sem effect e sem limpeza manual.
+  const numerosExibidos = useMemo(
+    () =>
+      otimistas.size === 0
+        ? numeros
+        : numeros.map((numero) => {
+            const otimista = otimistas.get(numero.numero);
+            return otimista && otimista.de === numero.status
+              ? { ...numero, status: otimista.para }
+              : numero;
+          }),
+    [numeros, otimistas],
+  );
 
   const abrir = (numero: number) => {
     setErroServidor(null);
@@ -54,13 +90,35 @@ export function GradeComModal({ quantidade, numeros, vendas }: Props) {
     setErroServidor(null);
   };
 
+  /** VT-6 · recusa do servidor: rollback do otimismo + toast prescrito (§4.5)
+   *  e alerta inline com o modal aberto (recusa nunca engolida — VT-4). */
+  const recusar = (mensagem: string, numero: number) => {
+    setOtimistas((atuais) => {
+      if (!atuais.has(numero)) return atuais;
+      const proximos = new Map(atuais);
+      proximos.delete(numero);
+      return proximos;
+    });
+    setErroServidor(mensagem);
+    setAviso({ mensagem, tipo: "erro" });
+  };
+
   /** Registrar (número disponível) ou transferir (número vendido, RF-06). */
   const enviar = (nome: string, telefone: string) => {
     const alvo = numeroSelecionado === null ? undefined : mapaNumeros.get(numeroSelecionado);
     if (!alvo) return;
 
+    const transferindo = mapaVendas.has(alvo.numero);
+    // Otimismo ANTES da transição (prioridade urgente): a pastilha vira verde
+    // com ✓ na hora do Salvar, enquanto a ação está em voo (§6). Edição/
+    // transferência não muda o status — nada a antecipar.
+    if (!transferindo && alvo.status === "disponivel") {
+      setOtimistas((atuais) =>
+        new Map(atuais).set(alvo.numero, { de: alvo.status, para: "vendido" }),
+      );
+    }
+
     iniciarPendente(async () => {
-      const transferindo = mapaVendas.has(alvo.numero);
       const resultado: EstadoVenda = transferindo
         ? await editarVenda({ numeroId: alvo.id, nome, telefone })
         : await registrarVenda({ numeroId: alvo.id, nome, telefone });
@@ -69,10 +127,10 @@ export function GradeComModal({ quantidade, numeros, vendas }: Props) {
         setErroServidor(null);
         setNumeroSelecionado(null);
         setAviso({ mensagem: resultado.mensagem, tipo: "sucesso" });
+        // O override permanece até o servidor refletir a ação (derivado).
         router.refresh();
       } else {
-        // Recusa do servidor (corrida, sessão, banco): modal segue aberto.
-        setErroServidor(resultado.mensagem);
+        recusar(resultado.mensagem, alvo.numero);
       }
     });
   };
@@ -80,6 +138,11 @@ export function GradeComModal({ quantidade, numeros, vendas }: Props) {
   const remover = () => {
     const alvo = numeroSelecionado === null ? undefined : mapaNumeros.get(numeroSelecionado);
     if (!alvo) return;
+
+    // VT-6 · otimismo na remoção (§6/RF-06): pastilha volta a disponível na hora.
+    setOtimistas((atuais) =>
+      new Map(atuais).set(alvo.numero, { de: alvo.status, para: "disponivel" }),
+    );
 
     iniciarPendente(async () => {
       const resultado = await removerVenda(alvo.id);
@@ -89,7 +152,7 @@ export function GradeComModal({ quantidade, numeros, vendas }: Props) {
         setAviso({ mensagem: resultado.mensagem, tipo: "sucesso" });
         router.refresh();
       } else {
-        setErroServidor(resultado.mensagem);
+        recusar(resultado.mensagem, alvo.numero);
       }
     });
   };
@@ -100,7 +163,7 @@ export function GradeComModal({ quantidade, numeros, vendas }: Props) {
 
   return (
     <div aria-busy={pendente}>
-      <GradeNumeros numeros={numeros} quantidade={quantidade} aoTocarNumero={abrir} />
+      <GradeNumeros numeros={numerosExibidos} quantidade={quantidade} aoTocarNumero={abrir} />
 
       {selecionado ? (
         <ModalVenda
