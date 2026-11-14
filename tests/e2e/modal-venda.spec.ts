@@ -164,10 +164,15 @@ test.describe("VT-6 · Concorrência no mesmo número (RN-03)", () => {
   /**
    * Extra E2E do VT-6 (o Teste 2 unit está em grade-com-modal.test.tsx): o
    * consultor vende o 037 DEPOIS de a tela do organizador ter carregado e
-   * ANTES do Salvar ("1s antes"). O servidor recusa com o toast prescrito e a
-   * pastilha otimista faz rollback. O estado "vendido" do consultor na grade
-   * chega ao vivo pela VT-9 (realtime) — aqui a tela segue nos dados do
-   * servidor do momento do carregamento.
+   * ANTES do Salvar ("1s antes"). O servidor recusa com o toast prescrito e
+   * nada é gravado em duplicidade.
+   *
+   * VT-9 · com o Realtime ativo (RF-18), a verdade chega ANTES do Salvar:
+   * o evento de `numeros` avisa o modal com o MESMO texto prescrito e
+   * antecipa a pastilha para `vendido` — o estado final NÃO é mais o stale
+   * do carregamento (o rollback do otimismo segue coberto pelo Teste 2
+   * unit da VT-6 em grade-com-modal.test.tsx). O resumo sobe a 4/100 pela
+   * revalidação ao vivo — prova de que a corrida gravou UMA venda só.
    */
   test("deve recusar venda em número vendido 1s antes por outro consultor com rollback da pastilha e toast prescrito", async ({
     page,
@@ -200,13 +205,15 @@ test.describe("VT-6 · Concorrência no mesmo número (RN-03)", () => {
 
     await modal.getByRole("button", { name: "Salvar" }).click();
 
-    // Recusa prescrita (§4.5): toast de erro + alerta inline, modal aberto.
+    // Recusa prescrita (§4.5): toast de erro + alerta inline, modal aberto —
+    // o mesmo texto do aviso ao vivo da VT-9.
     await expect(page.getByRole("status")).toContainText("Esse número acabou de ser vendido");
     await expect(modal.getByRole("alert")).toContainText("Esse número acabou de ser vendido");
 
-    // Rollback: a pastilha volta a disponível (estado do servidor do
-    // carregamento) e o resumo permanece inalterado — nada foi gravado 2×.
-    await expect(page.getByRole("button", { name: "Número 037, disponível" })).toBeVisible();
-    await expect(resumo.getByText("3 de 100")).toBeVisible();
+    // VT-9: a verdade ao vivo vence o estado stale — a pastilha mostra o
+    // estado do banco (vendido) e o resumo sobe a 4/100: UMA venda gravada,
+    // nunca duas (RN-03).
+    await expect(page.getByRole("button", { name: "Número 037, vendido" })).toBeVisible();
+    await expect(resumo.getByText("4 de 100")).toBeVisible();
   });
 });

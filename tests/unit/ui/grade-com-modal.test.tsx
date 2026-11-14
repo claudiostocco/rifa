@@ -37,6 +37,12 @@ vi.mock("next/navigation", () => ({
   useRouter: () => roteador,
 }));
 
+// VT-9 · o canal Realtime é transporte externo (websocket) — nos testes
+// unitários ele é substituído por um canal morto (sem eventos).
+vi.mock("@/lib/supabase/realtime", () => ({
+  assinarMudancaNumeros: vi.fn(() => ({ unsubscribe: vi.fn() })),
+}));
+
 /** Promessa controlada: o teste decide quando o servidor responde. */
 function adiar<T>(): { promise: Promise<T>; resolver: (valor: T) => void } {
   let resolver!: (valor: T) => void;
@@ -76,7 +82,7 @@ describe("VT-6 · Teste 2 (unit) — UI otimista com rollback na corrida do mesm
     const corrida = adiar<EstadoVenda>();
     vi.mocked(registrarVenda).mockReturnValue(corrida.promise);
 
-    render(<GradeComModal quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
+    render(<GradeComModal rifaId="r-1" quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
 
     const modal = await abrirModalDoNumero037();
     await userEvent.click(within(modal).getByRole("button", { name: "Salvar" }));
@@ -119,7 +125,7 @@ describe("VT-6 · Teste 2 (unit) — UI otimista com rollback na corrida do mesm
     const corrida = adiar<EstadoVenda>();
     vi.mocked(registrarVenda).mockReturnValue(corrida.promise);
 
-    render(<GradeComModal quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
+    render(<GradeComModal rifaId="r-1" quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
 
     const modal = await abrirModalDoNumero037();
     await userEvent.click(within(modal).getByRole("button", { name: "Salvar" }));
@@ -139,7 +145,7 @@ describe("VT-6 · Teste 2 (unit) — UI otimista com rollback na corrida do mesm
     const remocao = adiar<EstadoVenda>();
     vi.mocked(removerVenda).mockReturnValue(remocao.promise);
 
-    render(<GradeComModal quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
+    render(<GradeComModal rifaId="r-1" quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Número 001, vendido" }));
     const modal = screen.getByRole("dialog");

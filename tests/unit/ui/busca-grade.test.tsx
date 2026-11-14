@@ -21,6 +21,12 @@ vi.mock("next/navigation", () => ({
   useRouter: () => roteador,
 }));
 
+// VT-9 · o canal Realtime é transporte externo (websocket) — nos testes
+// unitários ele é substituído por um canal morto (sem eventos).
+vi.mock("@/lib/supabase/realtime", () => ({
+  assinarMudancaNumeros: vi.fn(() => ({ unsubscribe: vi.fn() })),
+}));
+
 type NumerosProp = React.ComponentProps<typeof GradeComModal>["numeros"];
 type VendasProp = React.ComponentProps<typeof GradeComModal>["vendas"];
 
@@ -41,7 +47,7 @@ const VENDAS: VendasProp = [
 
 describe("VT-8 · busca e filtro na grade da T3 (unit)", () => {
   it("deve destacar a pastilha do número exato ('051') e mostrar só ela na grade", async () => {
-    render(<GradeComModal quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
+    render(<GradeComModal rifaId="r-1" quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
 
     await userEvent.type(screen.getByLabelText("Buscar"), "051");
 
@@ -56,7 +62,7 @@ describe("VT-8 · busca e filtro na grade da T3 (unit)", () => {
   });
 
   it("deve revelar apenas os números da pessoa pelo telefone parcial", async () => {
-    render(<GradeComModal quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
+    render(<GradeComModal rifaId="r-1" quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
 
     await userEvent.type(screen.getByLabelText("Buscar"), "98111");
 
@@ -77,7 +83,7 @@ describe("VT-8 · busca e filtro na grade da T3 (unit)", () => {
   });
 
   it("deve ocultar as vendidas no filtro 'Disponíveis' e restaurar em 'Todos'", async () => {
-    render(<GradeComModal quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
+    render(<GradeComModal rifaId="r-1" quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Disponíveis" }));
 
@@ -96,7 +102,7 @@ describe("VT-8 · busca e filtro na grade da T3 (unit)", () => {
   });
 
   it("deve apresentar estado vazio claro na busca sem resultado e restaurar a grade ao limpar", async () => {
-    render(<GradeComModal quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
+    render(<GradeComModal rifaId="r-1" quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
 
     // "600": fora da faixa (1..100) e não está em nenhum telefone da rifa.
     await userEvent.type(screen.getByLabelText("Buscar"), "600");
@@ -118,7 +124,7 @@ describe("VT-8 · busca e filtro na grade da T3 (unit)", () => {
   });
 
   it("deve filtrar por nome de comprador ('Maria') revelando só os números dela", async () => {
-    render(<GradeComModal quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
+    render(<GradeComModal rifaId="r-1" quantidade={100} numeros={NUMEROS} vendas={VENDAS} />);
 
     await userEvent.type(screen.getByLabelText("Buscar"), "Maria");
 

@@ -20,9 +20,23 @@
  * (realtime da VT-9) — o estado do servidor vence. Reconciliação sem effect,
  * sem flicker e sem jamais mascarar o banco: a UI não é fonte de verdade
  * (§2.7 — a conferência é sempre no servidor).
+ *
+ * VT-9 · RF-18 (§4.16): o canal Realtime (`POSTGRES_CHANGES` em `numeros`
+ * — migração 005) entrega ao vivo as mudanças feitas por QUALQUER tela
+ * (consultor na T4/PB-2, organizador em outra aba). O handler:
+ *   1. modal — número aberto vendido por outra pessoa avisa na hora com o
+ *      texto prescrito "Esse número acabou de ser vendido" (o Salvar
+ *      recusaria com a MESMA mensagem, VT-5);
+ *   2. pastilha — antecipa o estado do evento pelo MESMO override
+ *      condicional da VT-6, exceto quando há ação nossa em voo para o
+ *      número (o otimismo dela governa; se o mundo passou por cima dela,
+ *      o override é descartado e a verdade chega pelo refresh);
+ *   3. grade/resumo/cabeçalho — `router.refresh()` re-renderiza os Server
+ *      Components com o estado do banco (o resumo não assina canal
+ *      próprio: ele é Server Component, RN-02/decisão 8).
  */
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { editarVenda, registrarVenda, removerVenda, type EstadoVenda } from "@/actions/vendas";
 import { BuscaFiltroGrade } from "@/components/BuscaFiltroGrade";
@@ -31,11 +45,14 @@ import { ModalVenda } from "@/components/ModalVenda";
 import { Toast } from "@/components/ui/Toast";
 import type { StatusNumero } from "@/lib/estados";
 import { filtrarGrade, type FiltroEstado } from "@/lib/busca";
+import { assinarMudancaNumeros, type MudancaStatusNumeros } from "@/lib/supabase/realtime";
 
 export type NumeroDaGrade = { id: string; numero: number; status: StatusNumero };
 export type VendaDaGrade = { numero: number; nome: string; telefone: string };
 
 type Props = {
+  /** Id da rifa — assina o canal Realtime de `numeros` (RF-18, migração 005). */
+  rifaId: string;
   /** Total da rifa (coluna `quantidade`) — faixa 1..N e blocos da grade. */
   quantidade: number;
   numeros: NumeroDaGrade[];
@@ -47,7 +64,10 @@ type Aviso = { mensagem: string; tipo: "sucesso" | "erro" };
 /** VT-6 · override otimista: só vale enquanto o servidor exibir `de` (§2.7). */
 type Otimismo = { de: StatusNumero; para: StatusNumero };
 
-export function GradeComModal({ quantidade, numeros, vendas }: Props) {
+/** §4.5 · texto prescrito da corrida — usado ao vivo (VT-9) e na recusa. */
+const NUMERO_VENDIDO_AO_VIVO = "Esse número acabou de ser vendido";
+
+export function GradeComModal({ rifaId, quantidade, numeros, vendas }: Props) {
   const router = useRouter();
   const [numeroSelecionado, setNumeroSelecionado] = useState<number | null>(null);
   const [erroServidor, setErroServidor] = useState<string | null>(null);
@@ -68,6 +88,65 @@ export function GradeComModal({ quantidade, numeros, vendas }: Props) {
     [numeros],
   );
   const mapaVendas = useMemo(() => new Map(vendas.map((venda) => [venda.numero, venda])), [vendas]);
+
+  // VT-9 · espelho de leitura para o callback do canal: o canal vive enquanto
+  // a tela viver e os eventos chegam FORA do render — os espelhos são
+  // atualizados em effect (regra react-hooks/refs: nada de ref no render).
+  const numerosRef = useRef(numeros);
+  const numeroSelecionadoRef = useRef(numeroSelecionado);
+  const otimistasRef = useRef(otimistas);
+  useEffect(() => {
+    numerosRef.current = numeros;
+    numeroSelecionadoRef.current = numeroSelecionado;
+    otimistasRef.current = otimistas;
+  });
+
+  // VT-9 · RF-18: evento ao vivo de `numeros` — modal, pastilha e painel
+  // respondem sem que ninguém aperte F5 (§4.16).
+  useEffect(() => {
+    const canal = assinarMudancaNumeros(rifaId, (mudanca: MudancaStatusNumeros) => {
+      const { numero, status: statusAoVivo } = mudanca.resposta;
+      if (statusAoVivo !== "disponivel" && statusAoVivo !== "vendido") return;
+
+      // 1. MODAL: só para mudanças de OUTRA tela. Com ação nossa em voo para
+      // o número, o evento é a própria gravação dela chegando — avisar
+      // "acabou de ser vendido" pela venda do organizador seria confusão.
+      const emVoo = otimistasRef.current.has(numero);
+      if (!emVoo && numeroSelecionadoRef.current === numero && statusAoVivo === "vendido") {
+        setErroServidor(NUMERO_VENDIDO_AO_VIVO);
+        setAviso({ mensagem: NUMERO_VENDIDO_AO_VIVO, tipo: "erro" });
+      }
+
+      // 2. PASTILHA: antecipa o estado do evento pelo override condicional
+      // da VT-6. Com ação nossa em voo, o otimismo dela governa — e se o
+      // mundo passou por cima dela (ex.: remoção concorrente), o override
+      // é descartado: a verdade chega pelo refresh (nunca mascara o banco).
+      setOtimistas((atuais) => {
+        const pendente = atuais.get(numero);
+        if (pendente) {
+          if (pendente.para !== statusAoVivo) {
+            const proximos = new Map(atuais);
+            proximos.delete(numero);
+            return proximos;
+          }
+          return atuais;
+        }
+        const statusDoServidor = numerosRef.current.find((n) => n.numero === numero)?.status;
+        if (!statusDoServidor || statusDoServidor === statusAoVivo) return atuais;
+        const proximos = new Map(atuais);
+        proximos.set(numero, { de: statusDoServidor, para: statusAoVivo });
+        return proximos;
+      });
+
+      // 3. GRADE/RESUMO/CABEÇALHO: Server Components re-renderizam no
+      // servidor com o estado do banco (o resumo não assina canal próprio).
+      router.refresh();
+    });
+
+    return () => {
+      void canal.unsubscribe();
+    };
+  }, [rifaId, router]);
 
   // VT-6 · a grade recebe servidor + otimismo: o número em voo exibe o estado
   // antecipado enquanto o servidor ainda mostra o pré-ação; quando o servidor

@@ -65,5 +65,5 @@ export async function NumerosDaRifa({ rifaId, quantidade }: Props) {
     telefone: venda.compradores.telefone,
   }));
 
-  return <GradeComModal quantidade={quantidade} numeros={numeros} vendas={vendas} />;
+  return <GradeComModal rifaId={rifaId} quantidade={quantidade} numeros={numeros} vendas={vendas} />;
 }
