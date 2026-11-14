@@ -11,9 +11,10 @@ import { criarClienteServidor } from "@/lib/supabase/server";
  *
  * A contagem de vendidos (RLS `numeros_organizador_proprias`, `head: true` —
  * a mesma consulta do resumo, VT-2) alimenta o aviso de mínimo do
- * encerramento (§4.8/RN-06): o mínimo é AVISO, quem decide é o organizador —
- * a própria ação valida apenas a transição (§2.7). Etapa `sorteada` não tem
- * ações do ciclo (as dela chegam em SR-2/SR-4).
+ * encerramento (§4.8/RN-06) e a contagem exata da confirmação do sorteio
+ * (§4.9/SR-2): o mínimo é AVISO, quem decide é o organizador — a própria ação
+ * valida apenas a transição (§2.7). Etapa `sorteada` não tem ações do ciclo
+ * (as do resultado chegam em SR-4/SR-6/SR-8).
  *
  * Falha de rede/permissão ≠ ausência de ações: estado de erro anunciado com
  * `role=alert` e caminho de recuperação (padrão VT-1/VT-2).
