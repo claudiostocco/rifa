@@ -21,6 +21,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { podeTransicionarRifa, type StatusRifa } from "@/lib/estados";
+import { formatarTelefone } from "@/lib/formato";
 import { ResultadoSorteioSchema, type ResultadoSorteio } from "@/lib/schemas";
 import { criarClienteAdministrador, usuarioDaSessao } from "@/lib/supabase/server";
 import type { RifaRow } from "@/lib/supabase/tipos";
@@ -29,6 +30,13 @@ import type { RifaRow } from "@/lib/supabase/tipos";
 export type EstadoSorteio =
   | { ok: true; mensagem: string; resultado: ResultadoSorteio }
   | { ok: false; mensagem: string };
+
+/**
+ * SR-7 · Estado da ação de revelação (RF-10): sucesso devolve o telefone JÁ
+ * formatado ("(11) 98888-7777") — o E.164 nunca cruza para o cliente, nem
+ * antes nem depois da revelação; a UI só exibe.
+ */
+export type EstadoRevelacao = { ok: true; telefone: string } | { ok: false; mensagem: string };
 
 const RECUSA_SESSAO = "Sua sessão expirou. Entre novamente para continuar.";
 const RECUSA_NAO_ENCONTRADA = "Não encontramos essa rifa na sua conta.";
@@ -41,6 +49,10 @@ const RECUSA_JA_SORTEADA =
   "O sorteio já foi realizado. Anule o resultado atual antes de sortear novamente.";
 const RECUSA_INESPERADA = "Não foi possível realizar o sorteio. Tente novamente.";
 const MENSAGEM_SUCESSO = "Sorteio realizado com sucesso.";
+
+/** SR-7 · recusas da revelação (RF-10) — rifa sem sorteio vigente (RN-08). */
+const RECUSA_SEM_SORTEIO =
+  "Não há sorteio vigente nesta rifa para revelar o telefone do ganhador.";
 
 /** Linha mínima para conferir posse, visibilidade (soft delete) e estado. */
 type RifaDoSorteio = Pick<RifaRow, "id" | "status" | "perfil_id" | "excluida">;
@@ -162,4 +174,69 @@ export async function sortear(id: string): Promise<EstadoSorteio> {
   revalidatePath("/rifas");
   revalidatePath(`/rifas/${id}`);
   return { ok: true, mensagem: MENSAGEM_SUCESSO, resultado: verificacao.data };
+}
+
+/**
+ * SR-7 · RF-10 · `revelarTelefoneVencedor(id)` — a revelação do telefone
+ * completo do ganhador é autorizada AQUI, no servidor (§3.4.6 item 7:
+ * "permissão auditada no servidor"): sessão httpOnly → posse da rifa
+ * (`perfil_id` da sessão, nunca do payload; `excluida` invisível) → sorteio
+ * VIGENTE (RN-08: `anulado_em IS NULL`). Chamada sem sessão (anon) é recusada
+ * com o padrão da casa; o E.164 NUNCA sai do servidor — a action devolve o
+ * telefone já formatado por `formatarTelefone` (que também garante que um
+ * valor malformado de gravação direta nunca atravesse para a tela).
+ *
+ * Sem tabela de auditoria no schema da SPEC §2.4 (decisão do usuário,
+ * 14/11/2026): a autorização executada nesta action É a conferência do
+ * servidor — a negação é provada pelo Teste 2 (int) da SR-7.
+ *
+ * Leitura pura: não altera estado, logo não revalida caminhos.
+ */
+export async function revelarTelefoneVencedor(id: string): Promise<EstadoRevelacao> {
+  if (!z.uuid().safeParse(id).success) {
+    return { ok: false, mensagem: RECUSA_NAO_ENCONTRADA };
+  }
+
+  const perfilId = await usuarioDaSessao();
+  if (!perfilId) {
+    return { ok: false, mensagem: RECUSA_SESSAO };
+  }
+
+  const admin = criarClienteAdministrador();
+  const { data: rifa } = await admin
+    .from("rifas")
+    .select("id, perfil_id, excluida")
+    .eq("id", id)
+    .maybeSingle();
+  if (!rifa || rifa.perfil_id !== perfilId || rifa.excluida) {
+    return { ok: false, mensagem: RECUSA_NAO_ENCONTRADA };
+  }
+
+  // Sorteio VIGENTE (RN-08): resultado anulado ou inexistente → sem revelação.
+  const { data: sorteio, error: erroLeitura } = await admin
+    .from("sorteios")
+    .select("comprador:comprador_id (telefone)")
+    .eq("rifa_id", id)
+    .is("anulado_em", null)
+    .maybeSingle();
+  if (erroLeitura) {
+    return { ok: false, mensagem: RECUSA_INESPERADA };
+  }
+  if (!sorteio) {
+    return { ok: false, mensagem: RECUSA_SEM_SORTEIO };
+  }
+
+  // PostgREST embute 1:1 (objeto) — defesa padrão da casa (padrão `sortear`).
+  const comprador = Array.isArray(sorteio.comprador) ? sorteio.comprador[0] : sorteio.comprador;
+  if (!comprador) {
+    return { ok: false, mensagem: RECUSA_INESPERADA };
+  }
+
+  try {
+    return { ok: true, telefone: formatarTelefone(comprador.telefone) };
+  } catch {
+    // Telefone malformado (impossível pela via da casa, possível por gravação
+    // direta): recusa honesta em vez de exibir valor inventado.
+    return { ok: false, mensagem: RECUSA_INESPERADA };
+  }
 }

@@ -6,6 +6,7 @@ import { Suspense } from "react";
 
 import { AcoesCicloRifa, EsqueletoAcoes } from "@/components/AcoesCicloRifa";
 import { BotaoCopiarLink } from "@/components/BotaoCopiarLink";
+import { CartaoResultadoVencedor } from "@/components/CartaoResultadoVencedor";
 import { EsqueletoGrade } from "@/components/GradeNumeros";
 import { NumerosDaRifa } from "@/components/NumerosDaRifa";
 import { EsqueletoResumo, ResumoRifa } from "@/components/ResumoRifa";
@@ -177,6 +178,14 @@ export default async function PaginaPainelRifa({ params }: Props) {
           skeleton estável; leitura sob RLS com erro de rede próprio. */}
       <Suspense fallback={<EsqueletoGrade />}>
         <NumerosDaRifa rifaId={rifa.id} quantidade={rifa.quantidade} />
+      </Suspense>
+
+      {/* SR-7 · Cartão do resultado do sorteio (§3.4.6 item 7 · RF-10): em
+          streaming (só existe quando há sorteio VIGENTE — RN-08); o telefone
+          do ganhador chega mascarado do servidor e a revelação é autorizada
+          pela action `revelarTelefoneVencedor`. */}
+      <Suspense fallback={null}>
+        <CartaoResultadoVencedor rifaId={rifa.id} quantidade={rifa.quantidade} />
       </Suspense>
 
       {/* SR-1 · Barra de ações por etapa (§3.4.6, item 6): em streaming com
