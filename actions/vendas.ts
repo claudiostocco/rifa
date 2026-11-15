@@ -28,9 +28,11 @@
  * exige sessão (o visitante é anon), mas escreve pelos MESMOS caminhos
  * conferidos com `service_role`: rifa publicada e `aberta`, número
  * `disponivel`, dados de comprador válidos — nunca INSERT direto do anon.
- * (O rate limit por IP/sessão chega na PB-3.)
+ * Na variante pública, rate limit atômico por IP via Postgres (PB-3).
  */
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import type { VendaInput } from "@/lib/schemas";
@@ -52,6 +54,34 @@ const RECUSA_SORTEADA =
 const RECUSA_BANCO_REGISTRO =
   "Não foi possível registrar a venda agora. Tente novamente em instantes.";
 const RECUSA_SEM_VIGENTE = "Este número não tem venda vigente para editar.";
+const RECUSA_RATE_LIMIT = "Muitas tentativas de venda. Tente novamente em alguns instantes.";
+const RECUSA_RATE_LIMIT_INDISPONIVEL =
+  "Não foi possível validar as tentativas agora. Tente novamente em instantes.";
+
+/**
+ * PB-3 · Hash do IP sem persistir o endereço em claro. O ingress confiável
+ * define `x-real-ip`; `x-forwarded-for` é fallback documentado na SPEC.
+ */
+async function chaveRateLimitPublica(): Promise<string> {
+  const cabecalhos = await headers();
+  const ipReal = cabecalhos.get("x-real-ip")?.trim();
+  const encaminhado = cabecalhos.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const ip = ipReal || encaminhado || "ip-desconhecido";
+  const ipLimitado = ip.slice(0, 128);
+
+  return createHash("sha256").update(ipLimitado).digest("hex");
+}
+
+/** PB-3 · Consome atomicamente uma tentativa compartilhada no Postgres. */
+async function permitirVendaPublica(): Promise<boolean | null> {
+  const chaveHash = await chaveRateLimitPublica();
+  const { data, error } = await criarClienteAdministrador().rpc("consumir_limite_venda_publica", {
+    p_chave_hash: chaveHash,
+  });
+
+  if (error || typeof data !== "boolean") return null;
+  return data;
+}
 
 /** Número com a rifa embutida — posse e estado conferidos antes de escrever. */
 type NumeroProprio = {
@@ -123,8 +153,8 @@ async function buscarNumeroPublico(
 
   // Status chegam como string do banco (CHECK sem enum — regra FD-4): afunilar
   // com guarda; valor fora do domínio do CHECK é bug de banco → recusa segura.
-  const statusNumero: NumeroPublico["status"] =
-    data.status === "vendido" ? "vendido" : "disponivel";
+  if (data.status !== "disponivel" && data.status !== "vendido") return null;
+  const statusNumero: NumeroPublico["status"] = data.status;
   const statusRifa = data.rifas.status;
   if (statusRifa !== "aberta" && statusRifa !== "encerrada" && statusRifa !== "sorteada") {
     return null;
@@ -290,6 +320,16 @@ export async function registrarVendaPublica(payload: VendaInput): Promise<Estado
   if (!parse.success) {
     const problema = parse.error.issues[0];
     return { ok: false, mensagem: problema?.message ?? "Verifique os dados do comprador." };
+  }
+
+  // PB-3 · 5 chamadas por IP em janela de 10 segundos, compartilhadas
+  // entre instâncias pelo Postgres. Falha do limitador bloqueia por segurança.
+  const permitida = await permitirVendaPublica();
+  if (permitida === null) {
+    return { ok: false, mensagem: RECUSA_RATE_LIMIT_INDISPONIVEL };
+  }
+  if (!permitida) {
+    return { ok: false, mensagem: RECUSA_RATE_LIMIT };
   }
 
   const admin = criarClienteAdministrador();

@@ -17,6 +17,12 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { registrarVendaPublica } from "@/actions/vendas";
 import type { Database } from "@/lib/supabase/database.types";
 
+const { ipDaRequisicao } = vi.hoisted(() => ({ ipDaRequisicao: { valor: "pb2-teste" } }));
+
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers({ "x-real-ip": ipDaRequisicao.valor }),
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
@@ -37,6 +43,7 @@ beforeAll(() => {
   process.env.NEXT_PUBLIC_SUPABASE_URL = url;
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = process.env.TEST_SUPABASE_ANON_KEY ?? "";
   process.env.SUPABASE_SERVICE_ROLE_KEY = chaveService;
+  ipDaRequisicao.valor = `pb2-${crypto.randomUUID()}`;
 });
 
 describe("PB-2 · Server Action registrarVendaPublica (SPEC §3.5/§4.5)", () => {
@@ -53,12 +60,11 @@ describe("PB-2 · Server Action registrarVendaPublica (SPEC §3.5/§4.5)", () =>
 
     // A rifa pública pertence a um perfil real (FK) — o perfil nasce do
     // trigger OCR da migração 001 quando o usuário é criado.
-    const { data: usuarioCriado, error: erroUsuario } =
-      await clientServico.auth.admin.createUser({
-        email: `pb2-publica+${crypto.randomUUID()}@example.test`,
-        password: "SenhaForte!2026",
-        email_confirm: true,
-      });
+    const { data: usuarioCriado, error: erroUsuario } = await clientServico.auth.admin.createUser({
+      email: `pb2-publica+${crypto.randomUUID()}@example.test`,
+      password: "SenhaForte!2026",
+      email_confirm: true,
+    });
     expect(erroUsuario).toBeNull();
     if (!usuarioCriado?.user) throw new Error("Usuário de teste não provisionado (PB-2).");
     usuarioId = usuarioCriado.user.id;
