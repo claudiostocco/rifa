@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { ListaRifas, type RifaDoCartao } from "./lista-rifas";
+import { BotaoInstalarApp } from "@/components/BotaoInstalarApp";
 import { classesBotaoPrimario } from "@/components/ui/Button";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import type { RifaRow } from "@/lib/supabase/tipos";
@@ -148,9 +149,12 @@ export default async function PaginaMinhasRifas() {
           </span>
           <span className="text-base font-bold tracking-tight text-tinta">Rifa App</span>
         </div>
-        <Link href="/rifas/nova" className={classesBotaoPrimario}>
-          + Nova Rifa
-        </Link>
+        <div className="flex items-center gap-2">
+          <BotaoInstalarApp />
+          <Link href="/rifas/nova" className={classesBotaoPrimario}>
+            + Nova Rifa
+          </Link>
+        </div>
       </header>
 
       <h1 className="mb-1 text-2xl font-bold tracking-tight text-tinta">Minhas Rifas</h1>
