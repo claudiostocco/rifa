@@ -70,9 +70,20 @@ test.describe("FD-13 · T2 · Criar/Editar rifa", () => {
     await expect(page.getByText(/valor estimado R\$\s850,50/)).toBeVisible();
     await expect(page.getByText("🟢 Aberta")).toBeVisible();
 
-    // Link público com o botão copiar (§3.4.1); a cópia em si é cenário PB-6.
-    await expect(page.getByText(/\/r\/rifa-do-forno-eletrico/)).toBeVisible();
+    // PB-6 · pós-criação (T2 → T3): o link exibido é o caminho público
+    // compartilhável e o clipboard recebe exatamente esse endereço.
+    const enderecoPublico = page.getByLabel("Endereço público da rifa");
+    await expect(enderecoPublico).toHaveText(/^https?:\/\//);
+    await expect(enderecoPublico).toHaveText(/\/r\/rifa-do-forno-eletrico/);
     await expect(page.getByRole("button", { name: "Copiar link público" })).toBeVisible();
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.getByRole("button", { name: "Copiar link público" }).click();
+    await expect(
+      page.getByText("Link copiado! Cole no WhatsApp ou onde quiser."),
+    ).toBeVisible();
+    const linkCopiado = await page.evaluate(() => navigator.clipboard.readText());
+    expect(linkCopiado).toBe(await enderecoPublico.textContent());
+    expect(new URL(linkCopiado).pathname).toMatch(/^\/r\/rifa-do-forno-eletrico-/u);
 
     // Data prevista não informada → campo omitido (nunca "undefined", VT-1).
     await expect(page.getByText(/Data prevista/)).toHaveCount(0);
