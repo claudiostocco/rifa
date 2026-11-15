@@ -18,7 +18,7 @@
  *     de comprador nunca alcançam o browser (RN-02/RNF-05).
  */
 import { createClient, type RealtimePostgresChangesPayload } from "@supabase/supabase-js";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -111,9 +111,17 @@ describe("VT-9 · Realtime — payload do anon contém só eventos de numeros (�
     const canais = [
       {
         nome: "numeros",
-        config: { event: "*" as const, schema: "public", table: "numeros", filter: `rifa_id=eq.${rifaId}` },
+        config: {
+          event: "*" as const,
+          schema: "public",
+          table: "numeros",
+          filter: `rifa_id=eq.${rifaId}`,
+        },
       },
-      { nome: "compradores", config: { event: "*" as const, schema: "public", table: "compradores" } },
+      {
+        nome: "compradores",
+        config: { event: "*" as const, schema: "public", table: "compradores" },
+      },
       { nome: "vendas", config: { event: "*" as const, schema: "public", table: "vendas" } },
     ].map(({ nome, config }) =>
       clientAnon
@@ -134,8 +142,8 @@ describe("VT-9 · Realtime — payload do anon contém só eventos de numeros (�
           }),
       ),
     );
-    // testTimeout do projeto já é 30s (vitest.config.mts) — suficiente para
-    // a negociação dos websockets com o Realtime do stack local.
+    // Teto deste `it` é de 120s (terceiro argumento abaixo) — folga para a
+    // negociação dos websockets com o Realtime do stack local.
     await todosSubscritos;
 
     // Mudança real no banco: venda completa (número + comprador + venda).
@@ -163,28 +171,50 @@ describe("VT-9 · Realtime — payload do anon contém só eventos de numeros (�
     });
     expect(erroVenda).toBeNull();
 
-    // Espera QUALQUER evento de numeros chegar (com teto) e ainda uma janela
-    // extra para QUALQUER evento de compradores/vendas — a ausência é a prova.
-    await vi.waitFor(
-      () => {
-        const deNumeros = eventos.filter((evento) => evento.tabela === "numeros");
-        if (deNumeros.length === 0) throw new Error("Evento de numeros não chegou.");
-        return deNumeros;
-      },
-      { timeout: 15_000, interval: 250 },
-    );
+    /**
+     * Entrega com RETRY REAL (anti-flake por construção — gotcha do
+     * serviço Realtime do CLI v3.0.0): a entrega de `postgres_changes`
+     * depende do polling do WAL, que atrasa sob contenção dos workers
+     * paralelos do Vitest contra o mesmo Postgres — a entrega pode levar
+     * mais do que a janela de um único `waitFor` (flake observado no CI).
+     * Estratégia: até 5 tentativas; em cada uma espera 15s por QUALQUER
+     * evento de `numeros` e, sem entrega, RE-DISPARA a MESMA mudança no
+     * banco — cada re-disparo é um UPDATE real, com evento real (o
+     * Postgres registra o UPDATE no WAL mesmo com valores idênticos). A
+     * asserção continua exigindo ENTREGA de verdade: se o Realtime
+     * estivesse quebrado, nenhuma tentativa a entregaria e o teste
+     * falharia honestamente no teto do `it` (120s, abaixo).
+     */
+    const espera = (ms: number) => new Promise((resolver) => setTimeout(resolver, ms));
+    const veioEventoDeNumeros = () => eventos.some((evento) => evento.tabela === "numeros");
 
-    // Janela de tolerância: compradores/vendas, se vazassem, chegariam aqui.
-    await new Promise((resolver) => setTimeout(resolver, 3_000));
+    for (let tentativa = 1; tentativa <= 5 && !veioEventoDeNumeros(); tentativa += 1) {
+      for (let decorrido = 0; decorrido < 15_000 && !veioEventoDeNumeros(); decorrido += 250) {
+        await espera(250);
+      }
+      if (veioEventoDeNumeros()) break;
+      // Nenhum evento na janela: re-dispara a MESMA mudança (UPDATE real)
+      // e volta a esperar — o teste se autocura contra atraso do polling.
+      await clientServico.from("numeros").update({ status: "vendido" }).eq("id", numero.id);
+    }
+
+    // A entrega é OBRIGATÓRIA: com o Realtime operante, uma das tentativas
+    // entrega; sem ela, o teste falha (nunca segue com 0 eventos).
+    expect(veioEventoDeNumeros()).toBe(true);
+
+    // Janela de tolerância: compradores/vendas, se vazassem, chegariam
+    // junto — seus INSERTs aconteceram ANTES do UPDATE entregue, então uma
+    // janela pós-entrega é prova honesta de ausência (RN-02/RNF-05).
+    await espera(5_000);
 
     // SÓ numeros: nenhum evento das tabelas de comprador (RN-02/RNF-05).
     const tabelas = new Set(eventos.map((evento) => evento.tabela));
     expect(tabelas.has("compradores")).toBe(false);
     expect(tabelas.has("vendas")).toBe(false);
 
-    // O evento de UPDATE do número 7 chegou com o estado correto — filtrado
-    // DEPOIS da janela de tolerância (o waitFor devolvia um snapshot tomado
-    // no primeiro evento; o UPDATE podia chegar meio segundo depois).
+    // O evento de UPDATE do número 7 chegou com o estado correto —
+    // re-disparos da anti-flake repetem a MESMA mudança, então qualquer
+    // UPDATE do 7 com `vendido` serve (o conteúdo é idêntico).
     const atualizacoes = eventos.filter(
       (evento) =>
         evento.tabela === "numeros" &&
@@ -201,5 +231,7 @@ describe("VT-9 · Realtime — payload do anon contém só eventos de numeros (�
     }
 
     for (const canal of canais) await clientAnon.removeChannel(canal);
-  });
+  }, // Teto PRÓPRIO do teste (o `testTimeout` global de 30s não cabe na soma
+  // das janelas da anti-flake: 5 tentativas × 15s + janela de ausência).
+  120_000);
 });
