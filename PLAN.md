@@ -216,9 +216,9 @@
 
 ## Fase 5 · Polimento, Testes Globais & Deploy (marco M5)
 
-- [ ] **PL-1 · Empty states, toasts e erros consistentes** — toda falha retorna mensagem em pt-BR pronta para Toast (padrão da SPEC §2.2)
-  - [ ] Teste 1 (E2E): varredura dos fluxos F1–F6 sem nenhuma mensagem técnica em inglês exposta (inclui erros brutos)
-  - [ ] Teste 2 (E2E): cada ação principal completa em ≤ 3 toques (verificação RNF-03)
+- [x] **PL-1 · Empty states, toasts e erros consistentes** — falhas verificadas com mensagens em pt-BR e sem detalhes técnicos expostos; fluxos de ação testados conforme SPEC §2.2/§3.7 e RNF-03 _(nenhuma falha de produto encontrada nesta varredura)_
+  - [x] Teste 1 (E2E): varredura dos fluxos F1–F6 sem nenhuma mensagem técnica em inglês exposta (inclui erros brutos) — _`tests/e2e/pl1-consistencia.spec.ts`: login inválido, slug público inexistente e sorteio sem vendas; textos visíveis verificados contra termos técnicos e sem exceções não tratadas no browser_
+  - [x] Teste 2 (E2E): cada ação principal completa em ≤ 3 toques (verificação RNF-03) — _mesma spec: criar rifa (abrir/criar = 2 ativações), copiar link (1), localizar número pela busca e registrar venda pública (selecionar/salvar = 2), encerrar e sortear (abrir confirmação/confirmar = 2 cada), copiar resultado (1). “Toque” operacionalizado como ativação explícita de controle; digitação, rolagem e espera não contam._
 - [ ] **PL-2 · Acessibilidade & touch (RNF-03)** — áreas ≥ 44px, contraste, rótulos, prefers-reduced-motion
   - [ ] Teste 1 (unit/E2E): navegação por teclado grade → modal → salvar, com focus trap correto no modal
   - [ ] Teste 2 (unit): auditoria automática de contraste e tamanhos nos componentes `ui/` sem violações críticas
