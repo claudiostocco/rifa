@@ -24,9 +24,16 @@ export type RifaDeTeste = { id: string; slug: string; titulo: string };
 type OpcoesRifaDeTeste = {
   /** Título base; um sufixo único é acrescentado para execução paralela. */
   titulo: string;
+  /** PB-1 · descrição da rifa (exibida no cabeçalho da T4 — §3.5). */
+  descricao?: string;
   status?: "aberta" | "encerrada" | "sorteada";
   /** Arquivada some da listagem T1 (RF-03) — cenário do Teste 2. */
   arquivada?: boolean;
+  /**
+   * PB-1 · excluída é soft delete (RF-14/§2.4): também deixa de ser publicada
+   * para o anon (`rifas_publico_le_publicadas` — cenário do Teste 2 da T4).
+   */
+  excluida?: boolean;
   /** Quantidade de números 1..N marcados `vendido` (progresso da barra). */
   vendidos?: number;
   quantidade?: number;
@@ -108,8 +115,10 @@ export function registrarRifaParaLimpeza(id: string): void {
  */
 export async function criarRifaDeTeste({
   titulo,
+  descricao,
   status = "aberta",
   arquivada = false,
+  excluida = false,
   vendidos = 0,
   quantidade = 100,
   comVenda = false,
@@ -145,6 +154,7 @@ export async function criarRifaDeTeste({
     .insert({
       perfil_id: usuario.id,
       titulo: tituloUnico,
+      ...(descricao ? { descricao } : {}),
       premio_descricao: premioDescricao,
       premio_rotulo: premioRotulo,
       premio_valor: premioValor,
@@ -154,6 +164,7 @@ export async function criarRifaDeTeste({
       slug,
       status,
       arquivada,
+      excluida,
       ...(dataPrevista ? { data_prevista: dataPrevista } : {}),
     })
     .select("id, slug, titulo")

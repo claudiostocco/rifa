@@ -29,23 +29,29 @@ type EstadoPastilha = StatusNumero | "sorteado";
 
 type EstiloPastilha = {
   celula: string;
+  /** Classe de toque — só entra na pastilha interativa (T3). */
+  hover: string;
   marcador: string;
   rotulo: (numeroExibido: string) => string;
 };
 
 const ESTILOS: Record<EstadoPastilha, EstiloPastilha> = {
   disponivel: {
-    celula: "border-linha bg-white text-tinta hover:bg-papel-escuro",
+    celula: "border-linha bg-white text-tinta",
+    /** A cor de toque só faz sentido na pastilha interativa (T3). */
+    hover: "hover:bg-papel-escuro",
     marcador: "",
     rotulo: (numeroExibido) => `Número ${numeroExibido}, disponível`,
   },
   vendido: {
     celula: "border-verde-venda/25 bg-verde-venda-suave text-verde-venda",
+    hover: "",
     marcador: "✓",
     rotulo: (numeroExibido) => `Número ${numeroExibido}, vendido`,
   },
   sorteado: {
     celula: "border-ouro/40 bg-ouro-suave text-ouro",
+    hover: "",
     marcador: "🏆",
     rotulo: (numeroExibido) => `Número ${numeroExibido}, sorteado`,
   },
@@ -63,8 +69,13 @@ type Props = {
    * por cima do estado — a pastilha segue tocável com seu rótulo normal.
    */
   numeroDestaque?: number;
-  /** Ação do toque em qualquer pastilha (abrir modal — VT-4/PB-2). */
-  aoTocarNumero: (numero: number) => void;
+  /**
+   * Ação do toque em qualquer pastilha (abrir modal — VT-4/PB-2). Omitido na
+   * T4 PB-1 (§3.5): a grade pública só EXIBE estados (vendido não tem nome nem
+   * telefone) e as pastilhas saem como texto não interativo até o modal
+   * público chegar na PB-2 — botão morto não entra na tela (RNF-03).
+   */
+  aoTocarNumero?: (numero: number) => void;
 };
 
 export function GradeNumeros({
@@ -124,29 +135,37 @@ export function GradeNumeros({
               const estilo = ESTILOS[estado];
               const numeroExibido = formatarNumero(pastilha.numero);
               const emDestaque = pastilha.numero === numeroDestaque;
-              return (
+              const classes = [
+                "relative flex aspect-square items-center justify-center rounded-lg border text-sm font-semibold tabular-nums",
+                estilo.celula,
+                // VT-8: anel da busca vence visualmente sem trocar o estado.
+                emDestaque ? "ring-2 ring-marca ring-offset-2" : "",
+                aoTocarNumero ? estilo.hover : "",
+              ].join(" ");
+              const marcador = estilo.marcador ? (
+                <span aria-hidden="true" className="absolute right-1 top-1 text-[10px] leading-none">
+                  {estilo.marcador}
+                </span>
+              ) : null;
+
+              // T3: botão que despacha ao consumidor; T4 (PB-1): só o estado —
+              // sem elemento morto na tabulação.
+              return aoTocarNumero ? (
                 <button
                   key={pastilha.numero}
                   type="button"
                   aria-label={estilo.rotulo(numeroExibido)}
                   onClick={() => aoTocarNumero(pastilha.numero)}
-                  className={[
-                    "relative flex aspect-square items-center justify-center rounded-lg border text-sm font-semibold tabular-nums transition-colors",
-                    estilo.celula,
-                    // VT-8: anel da busca vence visualmente sem trocar o estado.
-                    emDestaque ? "ring-2 ring-marca ring-offset-2" : "",
-                  ].join(" ")}
+                  className={`${classes} transition-colors`}
                 >
                   {numeroExibido}
-                  {estilo.marcador ? (
-                    <span
-                      aria-hidden="true"
-                      className="absolute right-1 top-1 text-[10px] leading-none"
-                    >
-                      {estilo.marcador}
-                    </span>
-                  ) : null}
+                  {marcador}
                 </button>
+              ) : (
+                <span key={pastilha.numero} aria-label={estilo.rotulo(numeroExibido)} className={classes}>
+                  {numeroExibido}
+                  {marcador}
+                </span>
               );
             })}
           </div>
