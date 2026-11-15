@@ -16,6 +16,11 @@
  * Sucesso devolve o snapshot do resultado no contrato `ResultadoSorteio`
  * (FD-5) — a roleta (SR-5) e a T5 desaceleram/exibem o que JÁ foi gravado no
  * servidor (§4.9 RF-09a: a animação é presentacional).
+ *
+ * SR-8 · RF-15: `desfazerSorteio(id)` anula o resultado vigente (RN-08) pela
+ * RPC transacional `desfazer_sorteio` (migração 006) — mesma via da RPC do
+ * sorteio, pois a marcação de `anulado_em` + a volta a `encerrada` precisam
+ * de transação única (§2.4).
  */
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -28,8 +33,12 @@ import type { RifaRow } from "@/lib/supabase/tipos";
 
 /** Estado da ação do sorteio — pt-BR pronto para Toast (mesmo padrão SR-1). */
 export type EstadoSorteio =
-  | { ok: true; mensagem: string; resultado: ResultadoSorteio }
-  | { ok: false; mensagem: string };
+  { ok: true; mensagem: string; resultado: ResultadoSorteio } | { ok: false; mensagem: string };
+
+/**
+ * SR-8 · Estado da ação de anulação (RF-15) — pt-BR pronto para Toast.
+ */
+export type EstadoAnulacao = { ok: true; mensagem: string } | { ok: false; mensagem: string };
 
 /**
  * SR-7 · Estado da ação de revelação (RF-10): sucesso devolve o telefone JÁ
@@ -43,16 +52,23 @@ const RECUSA_NAO_ENCONTRADA = "Não encontramos essa rifa na sua conta.";
 const RECUSA_ABERTA =
   "As vendas desta rifa ainda estão abertas. Encerre-as antes de realizar o sorteio.";
 // Texto PRESCRITO da §4.9 para o bloqueio de rifa encerrada sem vendidos.
-const RECUSA_SEM_VENDIDOS =
-  "A rifa não tem números vendidos; o sorteio não pode ser realizado.";
+const RECUSA_SEM_VENDIDOS = "A rifa não tem números vendidos; o sorteio não pode ser realizado.";
 const RECUSA_JA_SORTEADA =
   "O sorteio já foi realizado. Anule o resultado atual antes de sortear novamente.";
 const RECUSA_INESPERADA = "Não foi possível realizar o sorteio. Tente novamente.";
 const MENSAGEM_SUCESSO = "Sorteio realizado com sucesso.";
 
+/**
+ * SR-8 · recusas da anulação (RF-15/§4.14) — `aberta` e `encerrada` não têm
+ * resultado a anular (§2.7: só `sorteada` pode voltar a `encerrada`).
+ */
+const RECUSA_NAO_SORTEADA = "Esta rifa não está sorteada. Não há resultado de sorteio para anular.";
+const RECUSA_SEM_SORTEIO_ANULACAO = "Não há sorteio vigente nesta rifa para anular.";
+const RECUSA_INESPERADA_ANULACAO = "Não foi possível anular o sorteio. Tente novamente.";
+const MENSAGEM_SUCESSO_ANULACAO = "Sorteio anulado com sucesso.";
+
 /** SR-7 · recusas da revelação (RF-10) — rifa sem sorteio vigente (RN-08). */
-const RECUSA_SEM_SORTEIO =
-  "Não há sorteio vigente nesta rifa para revelar o telefone do ganhador.";
+const RECUSA_SEM_SORTEIO = "Não há sorteio vigente nesta rifa para revelar o telefone do ganhador.";
 
 /** Linha mínima para conferir posse, visibilidade (soft delete) e estado. */
 type RifaDoSorteio = Pick<RifaRow, "id" | "status" | "perfil_id" | "excluida">;
@@ -94,6 +110,17 @@ function mensagemDoCodigo(mensagemErro: string): string {
   if (mensagemErro.startsWith("RIFA_JA_SORTEADA")) return RECUSA_JA_SORTEADA;
   if (mensagemErro.startsWith("RIFA_INEXISTENTE")) return RECUSA_NAO_ENCONTRADA;
   return RECUSA_INESPERADA;
+}
+
+/**
+ * SR-8 · Códigos de ABORT da RPC `desfazer_sorteio` (migração 006) → mensagem
+ * pt-BR do mapa. O token vem no início da mensagem do PostgREST.
+ */
+function mensagemDoCodigoAnulacao(mensagemErro: string): string {
+  if (mensagemErro.startsWith("RIFA_NAO_SORTEADA")) return RECUSA_NAO_SORTEADA;
+  if (mensagemErro.startsWith("RIFA_SEM_SORTEIO")) return RECUSA_SEM_SORTEIO_ANULACAO;
+  if (mensagemErro.startsWith("RIFA_INEXISTENTE")) return RECUSA_NAO_ENCONTRADA;
+  return RECUSA_INESPERADA_ANULACAO;
 }
 
 /**
@@ -239,4 +266,52 @@ export async function revelarTelefoneVencedor(id: string): Promise<EstadoRevelac
     // direta): recusa honesta em vez de exibir valor inventado.
     return { ok: false, mensagem: RECUSA_INESPERADA };
   }
+}
+
+/**
+ * SR-8 · RF-15 · `desfazerSorteio(id)` — anula o resultado VIGENTE (RN-08:
+ * `anulado_em IS NULL`) e devolve a rifa a `encerrada`, EM TRANSAÇÃO ÚNICA
+ * (§2.4): a via é a RPC `desfazer_sorteio` (migração 006), que trava a rifa
+ * com FOR UPDATE e aborta sem alterar nada se o estado mudar no meio-tempo
+ * (desfazer concorrente com sortear/reabrir — padrão FD-3/SR-1). O histórico
+ * anulado fica preservado em `sorteios` (auditoria, RF-15) e NUNCA é apagado
+ * nem exibido em tela; o re-sorteio volta a ser permitido (a RPC da 002 só
+ * bloqueia com vigente, RNF-06).
+ *
+ * Guarda da máquina (§2.7/FD-7): só `sorteada → encerrada` — `aberta` e
+ * `encerrada` são recusadas antes de tocar o banco. Revalida a listagem T1
+ * e o painel T3 no mesmo roundtrip (badge 🎉 → 🔒, cartão do resultado sai
+ * de cena e a barra da etapa `encerrada` volta).
+ */
+export async function desfazerSorteio(id: string): Promise<EstadoAnulacao> {
+  if (!z.uuid().safeParse(id).success) {
+    return { ok: false, mensagem: RECUSA_NAO_ENCONTRADA };
+  }
+
+  const perfilId = await usuarioDaSessao();
+  if (!perfilId) {
+    return { ok: false, mensagem: RECUSA_SESSAO };
+  }
+
+  const admin = criarClienteAdministrador();
+  const rifa = await rifaDoOrganizador(admin, id, perfilId);
+  if (!rifa) {
+    return { ok: false, mensagem: RECUSA_NAO_ENCONTRADA };
+  }
+
+  // §4.14: "Só com status = 'sorteada'". A máquina de estados garante que a
+  // única reversão válida para `encerrada` parte de `sorteada` (§2.7/FD-7) —
+  // qualquer mudança nela quebra aqui, antes da RPC.
+  if (!podeTransicionarRifa(rifa.status, "encerrada") || rifa.status !== "sorteada") {
+    return { ok: false, mensagem: RECUSA_NAO_SORTEADA };
+  }
+
+  const { data: anuladoEm, error: erroRpc } = await admin.rpc("desfazer_sorteio", { rifa: id });
+  if (erroRpc || typeof anuladoEm !== "string") {
+    return { ok: false, mensagem: mensagemDoCodigoAnulacao(erroRpc?.message ?? "") };
+  }
+
+  revalidatePath("/rifas");
+  revalidatePath(`/rifas/${id}`);
+  return { ok: true, mensagem: MENSAGEM_SUCESSO_ANULACAO };
 }

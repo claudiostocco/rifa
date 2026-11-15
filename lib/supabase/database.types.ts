@@ -161,7 +161,10 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "perfil_do_usuario":
+            "desfazer_sorteio":
+{ Args: { "rifa": string }; Returns: string
+                           },
+"perfil_do_usuario":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
 "pertence_ao_propria_rifa":

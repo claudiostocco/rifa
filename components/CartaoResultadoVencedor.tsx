@@ -3,6 +3,8 @@
  * Server Component assíncrono consumido em `Suspense` pela T3: some (null)
  * quando a rifa ainda não tem sorteio VIGENTE (RN-08: `anulado_em IS NULL`)
  * e aparece com número, nome e telefone do ganhador quando há resultado.
+ * SR-8: o mesmo cartão oferece [↩️ Anular resultado] (RF-15) — após a
+ * anulação ele sai de cena (não há mais vigente) e a rifa volta a 🔒.
  *
  * Leitura sob RLS (`sorteios_organizador_proprias` — rifa de outro
  * organizador nunca vaza): o telefone chega em E.164 e é mascarado AQUI no
@@ -15,6 +17,7 @@
  */
 import Link from "next/link";
 
+import { AnularSorteio } from "@/components/AnularSorteio";
 import { TelefoneVencedor } from "@/components/TelefoneVencedor";
 import { formatarNumero, formatarTelefoneOculto } from "@/lib/formato";
 import { criarClienteServidor } from "@/lib/supabase/server";
@@ -53,10 +56,10 @@ export async function CartaoResultadoVencedor({ rifaId, quantidade }: Props) {
   if (!sorteio) return null;
 
   // PostgREST embute 1:1 (objeto) — defesa padrão da casa (`actions/sorteio.ts`).
-  const numeroBruto = Array.isArray(sorteio.numero) ? sorteio.numero[0]?.numero : sorteio.numero?.numero;
-  const comprador = Array.isArray(sorteio.comprador)
-    ? sorteio.comprador[0]
-    : sorteio.comprador;
+  const numeroBruto = Array.isArray(sorteio.numero)
+    ? sorteio.numero[0]?.numero
+    : sorteio.numero?.numero;
+  const comprador = Array.isArray(sorteio.comprador) ? sorteio.comprador[0] : sorteio.comprador;
 
   // Dado incompleto/fora do domínio de `formatarNumero` (bug de banco, nunca
   // pela via da casa): cartão omitido em vez de crashar a tela do organizador.
@@ -99,6 +102,11 @@ export async function CartaoResultadoVencedor({ rifaId, quantidade }: Props) {
           )}
         </div>
       </div>
+
+      {/* SR-8 · RF-15: anulação do resultado vigente (transação única na RPC
+          desfazer_sorteio) — no sucesso o cartão sai de cena (RN-08) junto
+          com o refresh que devolve o badge 🔒 e as ações da etapa encerrada. */}
+      <AnularSorteio rifaId={rifaId} />
     </section>
   );
 }
