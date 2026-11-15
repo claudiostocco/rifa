@@ -30,6 +30,7 @@ import { encerrarVendas, reabrirVendas, type EstadoCiclo } from "@/actions/ciclo
 import { sortear, type EstadoSorteio } from "@/actions/sorteio";
 import { RoletaSorteio } from "@/components/RoletaSorteio";
 import { Button } from "@/components/ui/Button";
+import { useOnlineStatus } from "@/components/StatusConexao";
 import { Modal } from "@/components/ui/Modal";
 import { Toast } from "@/components/ui/Toast";
 import type { StatusRifa } from "@/lib/estados";
@@ -57,6 +58,7 @@ export function BotoesCiclo({ rifaId, status, vendidos, qtdMinima, participantes
   // SR-5 · snapshot do resultado gravado que abre a roleta (null = fechada).
   const [sorteioGravado, setSorteioGravado] = useState<SorteioGravado | null>(null);
   const [pendente, iniciarPendente] = useTransition();
+  const online = useOnlineStatus();
 
   const abaixoDoMinimo = vendidos < qtdMinima;
 
@@ -67,6 +69,7 @@ export function BotoesCiclo({ rifaId, status, vendidos, qtdMinima, participantes
   };
 
   const encerrar = () => {
+    if (!navigator.onLine) return;
     setConfirmacaoAberta(false);
     iniciarPendente(async () => {
       processar(await encerrarVendas(rifaId));
@@ -74,12 +77,14 @@ export function BotoesCiclo({ rifaId, status, vendidos, qtdMinima, participantes
   };
 
   const reabrir = () => {
+    if (!navigator.onLine) return;
     iniciarPendente(async () => {
       processar(await reabrirVendas(rifaId));
     });
   };
 
   const sortearAgora = () => {
+    if (!navigator.onLine) return;
     setConfirmacaoAberta(false);
     iniciarPendente(async () => {
       const resultado = await sortear(rifaId);
@@ -107,7 +112,7 @@ export function BotoesCiclo({ rifaId, status, vendidos, qtdMinima, participantes
         {/* §3.4.6 — [🎉 Realizar Sorteio] em DESTAQUE (primario), acima de
             Reabrir vendas. A confirmação é prescrita (§4.9): contagem exata
             de vendidos; o mínimo NUNCA avisa nem bloqueia aqui (§4.8). */}
-        <Button className="w-full" onClick={() => setConfirmacaoAberta(true)} disabled={pendente}>
+        <Button className="w-full" onClick={() => setConfirmacaoAberta(true)} disabled={pendente || !online}>
           {pendente ? (
             "Sorteando…"
           ) : (
@@ -117,7 +122,7 @@ export function BotoesCiclo({ rifaId, status, vendidos, qtdMinima, participantes
           )}
         </Button>
 
-        <Button variante="secundario" className="w-full" onClick={reabrir} disabled={pendente}>
+        <Button variante="secundario" className="w-full" onClick={reabrir} disabled={pendente || !online}>
           {pendente ? (
             "Reabrindo…"
           ) : (
@@ -140,7 +145,7 @@ export function BotoesCiclo({ rifaId, status, vendidos, qtdMinima, participantes
             </p>
 
             <div className="flex flex-col gap-2">
-              <Button onClick={sortearAgora} disabled={pendente} className="w-full">
+              <Button onClick={sortearAgora} disabled={pendente || !online} className="w-full">
                 Confirmar
               </Button>
               <Button
@@ -166,7 +171,7 @@ export function BotoesCiclo({ rifaId, status, vendidos, qtdMinima, participantes
           variante="secundario"
           className="w-full"
           onClick={() => setConfirmacaoAberta(true)}
-          disabled={pendente}
+          disabled={pendente || !online}
         >
           {pendente ? (
             "Encerrando…"
@@ -197,13 +202,13 @@ export function BotoesCiclo({ rifaId, status, vendidos, qtdMinima, participantes
             )}
 
             <div className="flex flex-col gap-2">
-              <Button onClick={encerrar} disabled={pendente} className="w-full">
+              <Button onClick={encerrar} disabled={pendente || !online} className="w-full">
                 {abaixoDoMinimo ? "Encerrar mesmo assim" : "Confirmar"}
               </Button>
               <Button
                 variante="secundario"
                 onClick={() => setConfirmacaoAberta(false)}
-                disabled={pendente}
+                disabled={pendente || !online}
                 className="w-full"
               >
                 Cancelar

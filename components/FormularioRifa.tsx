@@ -6,6 +6,7 @@ import { useActionState, useEffect, useState } from "react";
 import { criarRifa, salvarEdicaoRifa, type EstadoRifa } from "@/actions/rifas";
 import { Button } from "@/components/ui/Button";
 import { FotoPremio } from "@/components/FotoPremio";
+import { estaOffline } from "@/components/StatusConexao";
 import { Input } from "@/components/ui/Input";
 import {
   formatarFrasePremio,
@@ -141,6 +142,18 @@ export function FormularioRifa({ rifa, quantidadeBloqueada = false }: Props) {
     data_prevista: rifa?.data_prevista ?? "",
   }));
   const [tocados, setTocados] = useState<ReadonlySet<string>>(new Set());
+  const [offline, setOffline] = useState(false);
+
+  useEffect(() => {
+    const atualizar = () => setOffline(!navigator.onLine);
+    atualizar();
+    window.addEventListener("online", atualizar);
+    window.addEventListener("offline", atualizar);
+    return () => {
+      window.removeEventListener("online", atualizar);
+      window.removeEventListener("offline", atualizar);
+    };
+  }, []);
 
   const setCampo = (campo: keyof Valores, valor: string) =>
     setValores((anteriores) => ({ ...anteriores, [campo]: valor }));
@@ -211,7 +224,17 @@ export function FormularioRifa({ rifa, quantidadeBloqueada = false }: Props) {
   }, [estado, router]);
 
   return (
-    <form action={disparar} className="space-y-5" aria-busy={enviando}>
+    <form
+      action={disparar}
+      className="space-y-5"
+      aria-busy={enviando}
+      onSubmitCapture={(evento) => {
+        if (estaOffline()) {
+          evento.preventDefault();
+          setOffline(true);
+        }
+      }}
+    >
       {modoEdicao ? <input type="hidden" name="id" value={rifa.id} /> : null}
 
       <div className="space-y-1">
@@ -375,7 +398,7 @@ export function FormularioRifa({ rifa, quantidadeBloqueada = false }: Props) {
         type="submit"
         tamanho="grande"
         className="w-full"
-        disabled={!formularioValido || enviando}
+        disabled={!formularioValido || enviando || offline}
       >
         {enviando
           ? modoEdicao
@@ -385,6 +408,12 @@ export function FormularioRifa({ rifa, quantidadeBloqueada = false }: Props) {
             ? "Salvar alterações"
             : "Criar rifa"}
       </Button>
+
+      {offline ? (
+        <p role="alert" className="text-sm font-medium text-red-800">
+          Sem conexão — a rifa não foi salva. Reconecte-se para tentar novamente.
+        </p>
+      ) : null}
 
       {estado && !estado.ok ? (
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">

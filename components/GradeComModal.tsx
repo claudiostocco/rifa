@@ -215,6 +215,7 @@ export function GradeComModal({
 
   /** Registrar (número disponível) ou transferir (número vendido, RF-06). */
   const enviar = (nome: string, telefone: string) => {
+    if (!navigator.onLine) return;
     const alvo = numeroSelecionado === null ? undefined : mapaNumeros.get(numeroSelecionado);
     if (!alvo) return;
 
@@ -246,6 +247,7 @@ export function GradeComModal({
   };
 
   const remover = () => {
+    if (!navigator.onLine) return;
     const alvo = numeroSelecionado === null ? undefined : mapaNumeros.get(numeroSelecionado);
     if (!alvo) return;
 

@@ -23,6 +23,7 @@ import { useState, useTransition } from "react";
 
 import { desfazerSorteio, type EstadoAnulacao } from "@/actions/sorteio";
 import { Button } from "@/components/ui/Button";
+import { useOnlineStatus } from "@/components/StatusConexao";
 import { Modal } from "@/components/ui/Modal";
 import { emitirToastRaiz } from "@/components/ToastRaiz";
 
@@ -32,8 +33,10 @@ export function AnularSorteio({ rifaId }: Props) {
   const router = useRouter();
   const [confirmacaoAberta, setConfirmacaoAberta] = useState(false);
   const [pendente, iniciarPendente] = useTransition();
+  const online = useOnlineStatus();
 
   const anular = () => {
+    if (!navigator.onLine) return;
     setConfirmacaoAberta(false);
     iniciarPendente(async () => {
       const resultado: EstadoAnulacao = await desfazerSorteio(rifaId);
@@ -48,7 +51,7 @@ export function AnularSorteio({ rifaId }: Props) {
         variante="secundario"
         className="mt-4 w-full"
         onClick={() => setConfirmacaoAberta(true)}
-        disabled={pendente}
+        disabled={pendente || !online}
       >
         {pendente ? (
           "Anulando…"
@@ -71,13 +74,13 @@ export function AnularSorteio({ rifaId }: Props) {
           </p>
 
           <div className="flex flex-col gap-2">
-            <Button onClick={anular} disabled={pendente} className="w-full">
+            <Button onClick={anular} disabled={pendente || !online} className="w-full">
               Anular resultado
             </Button>
             <Button
               variante="secundario"
               onClick={() => setConfirmacaoAberta(false)}
-              disabled={pendente}
+              disabled={pendente || !online}
               className="w-full"
             >
               Cancelar

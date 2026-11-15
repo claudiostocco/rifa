@@ -17,7 +17,7 @@
  * `aoRemover` e nunca abre o modal em número vendido — só o registro de
  * comprador em número disponível existe na T4.
  */
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -72,12 +72,27 @@ export function ModalVenda({
   );
   const [erros, setErros] = useState<ErrosCampos>({});
   const [confirmandoRemocao, setConfirmandoRemocao] = useState(false);
+  const [offline, setOffline] = useState(false);
+
+  useEffect(() => {
+    const atualizar = () => setOffline(!navigator.onLine);
+    atualizar();
+    window.addEventListener("online", atualizar);
+    window.addEventListener("offline", atualizar);
+    return () => {
+      window.removeEventListener("online", atualizar);
+      window.removeEventListener("offline", atualizar);
+    };
+  }, []);
 
   const vendido = status === "vendido";
 
   const aoSubmeter = (evento: FormEvent) => {
     evento.preventDefault();
-    if (pendente) return;
+    if (pendente || !navigator.onLine) {
+      if (!navigator.onLine) setOffline(true);
+      return;
+    }
 
     // Validação campo a campo com os MESMOS schemas do contrato (FD-13):
     // os dois erros aparecem juntos, cada um sob o seu campo.
@@ -112,7 +127,16 @@ export function ModalVenda({
 
   return (
     <Modal aberto aoFechar={aoFechar} titulo={`Número ${formatarNumero(numero)}`}>
-      <form onSubmit={aoSubmeter} className="space-y-4" noValidate>
+      <form
+        onSubmit={aoSubmeter}
+        className="space-y-4"
+        noValidate
+      >
+        {offline ? (
+          <p role="alert" className="rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">
+            Sem conexão — os dados não serão salvos até reconectar.
+          </p>
+        ) : null}
         {vendido ? (
           aoRemover ? (
             <p className="text-xs text-tinta-suave">
@@ -132,7 +156,7 @@ export function ModalVenda({
           value={nome}
           onChange={(evento) => setNome(evento.target.value)}
           erro={erros.nome}
-          disabled={pendente}
+          disabled={pendente || offline}
         />
 
         <Input
@@ -144,7 +168,7 @@ export function ModalVenda({
           value={telefoneDigitado}
           onChange={(evento) => setTelefoneDigitado(mascaraTelefoneDigitacao(evento.target.value))}
           erro={erros.telefone}
-          disabled={pendente}
+          disabled={pendente || offline}
         />
 
         {erroServidor ? (
@@ -157,7 +181,7 @@ export function ModalVenda({
         ) : null}
 
         <div className="flex flex-col gap-2 pt-1">
-          <Button type="submit" disabled={pendente}>
+          <Button type="submit" disabled={pendente || offline}>
             {pendente ? "Salvando…" : "Salvar"}
           </Button>
 
@@ -168,13 +192,13 @@ export function ModalVenda({
                   Remover esta venda? O comprador sai do número, mas o histórico fica preservado.
                 </p>
                 <div className="mt-2 flex gap-2">
-                  <Button variante="perigo" onClick={aoRemover} disabled={pendente}>
+                  <Button variante="perigo" onClick={aoRemover} disabled={pendente || offline}>
                     {pendente ? "Removendo…" : "Confirmar remoção"}
                   </Button>
                   <Button
                     variante="fantasma"
                     onClick={() => setConfirmandoRemocao(false)}
-                    disabled={pendente}
+                    disabled={pendente || offline}
                   >
                     Cancelar
                   </Button>
@@ -184,7 +208,7 @@ export function ModalVenda({
               <Button
                 variante="perigo"
                 onClick={() => setConfirmandoRemocao(true)}
-                disabled={pendente}
+                disabled={pendente || offline}
               >
                 Remover venda
               </Button>

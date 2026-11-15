@@ -198,6 +198,7 @@ export function GradeComModalPublica({
 
   /** RF-05a · registrar comprador no número disponível (origem fica no servidor). */
   const enviar = (nome: string, telefoneE164: string) => {
+    if (!navigator.onLine) return;
     const alvo = numeroSelecionado === null ? undefined : mapaNumeros.get(numeroSelecionado);
     if (!alvo) return;
 
