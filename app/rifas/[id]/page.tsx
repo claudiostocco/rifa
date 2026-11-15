@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -132,10 +133,12 @@ export default async function PaginaPainelRifa({ params }: Props) {
 
       <header className="space-y-3">
         {rifa.imagem_url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- URL própria do Storage; otimização de imagem chega no PB-5
-          <img
+          <Image
             src={rifa.imagem_url}
             alt=""
+            width={768}
+            height={576}
+            sizes="(max-width: 448px) 100vw, 448px"
             className="h-40 w-full rounded-card border border-linha object-cover"
           />
         ) : null}

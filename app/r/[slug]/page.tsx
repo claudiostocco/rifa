@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -71,7 +72,7 @@ export default async function PaginaRifaPublica({ params }: Props) {
   const { data: rifa, error: erroLeitura } = await supabase
     .from("rifas")
     .select(
-      "id, slug, titulo, descricao, premio_descricao, premio_rotulo, premio_valor, numero_valor, quantidade, qtd_minima, data_prevista, status",
+      "id, slug, titulo, descricao, premio_descricao, premio_rotulo, premio_valor, numero_valor, quantidade, qtd_minima, data_prevista, imagem_url, status",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -105,8 +106,17 @@ export default async function PaginaRifaPublica({ params }: Props) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-12 pt-8">
       <header className="space-y-3">
-        {/* Banner da foto chega na PB-5 (upload + compressão client) — o título
-            descreve a rifa desde a primeira tela. */}
+        {rifa.imagem_url ? (
+          <Image
+            src={rifa.imagem_url}
+            alt=""
+            width={768}
+            height={576}
+            sizes="(max-width: 448px) 100vw, 448px"
+            className="h-40 w-full rounded-card border border-linha object-cover"
+          />
+        ) : null}
+
         <div className="flex items-start justify-between gap-3">
           <h1 className="text-2xl font-bold tracking-tight text-tinta">{rifa.titulo}</h1>
           <Badge tipo={tipoDoBadge(rifa.status)}>

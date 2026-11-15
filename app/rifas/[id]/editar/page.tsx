@@ -130,6 +130,7 @@ export default async function PaginaEditarRifa({ params }: Props) {
     quantidade: rifa.quantidade,
     qtd_minima: rifa.qtd_minima,
     data_prevista: rifa.data_prevista ?? "",
+    imagem_url: rifa.imagem_url ?? "",
   };
 
   return (

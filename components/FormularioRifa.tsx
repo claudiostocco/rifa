@@ -5,6 +5,7 @@ import { useActionState, useEffect, useState } from "react";
 
 import { criarRifa, salvarEdicaoRifa, type EstadoRifa } from "@/actions/rifas";
 import { Button } from "@/components/ui/Button";
+import { FotoPremio } from "@/components/FotoPremio";
 import { Input } from "@/components/ui/Input";
 import {
   formatarFrasePremio,
@@ -48,6 +49,7 @@ export type RifaParaEdicao = {
   qtd_minima: number;
   /** "AAAA-MM-DD" ou "" quando a rifa não tem data prevista. */
   data_prevista: string;
+  imagem_url: string;
 };
 
 type Props = {
@@ -366,6 +368,8 @@ export function FormularioRifa({ rifa, quantidadeBloqueada = false }: Props) {
         onBlur={() => marcarTocado(["data_prevista"])}
         onChange={(evento) => setCampo("data_prevista", evento.target.value)}
       />
+
+      <FotoPremio imagemInicial={rifa?.imagem_url ?? ""} />
 
       <Button
         type="submit"

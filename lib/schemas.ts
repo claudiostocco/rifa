@@ -102,6 +102,19 @@ function urlValida(url: string) {
   }
 }
 
+export const TAMANHO_MAXIMO_FOTO = 5 * 1024 * 1024;
+
+/** Arquivo bruto enviado à Server Action de foto (RF-17). */
+export const EnviarFotoInputSchema = z.object({
+  arquivo: z
+    .instanceof(File, { error: "Selecione uma foto do prêmio." })
+    .refine((arquivo) => arquivo.size > 0, "A foto selecionada está vazia.")
+    .refine(
+      (arquivo) => arquivo.size <= TAMANHO_MAXIMO_FOTO,
+      "A foto deve ter no máximo 5 MB.",
+    ),
+});
+
 const CamposRifaSchema = z.object({
   titulo: z
     .string({ error: "Informe o título da rifa" })
