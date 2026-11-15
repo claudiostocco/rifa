@@ -206,9 +206,9 @@
 - [x] **PB-8 · Banner de offline (F7)** — `navigator.onLine` + banner; gravações bloqueadas, sem fila offline (v1) _(`components/StatusConexao.tsx` monitora eventos `online`/`offline` no shell global e anuncia o banner acessível em pt-BR. T2 impede submit se o navegador ficar offline durante a interação; modal de venda desabilita salvar/remover, exibe motivo e valida novamente no submit. T3 bloqueia encerrar/reabrir/sortear/anular, e grade organizadora/pública impede chamada de venda/remoção offline. Não há fila nem retry automático.)_
   - [x] Teste 1 (E2E): `setOffline` → banner "Sem conexão — os dados não serão salvos até reconectar" aparece — _`tests/e2e/offline-pb8.spec.ts`: banner global aparece ao perder conexão e some ao reconectar_
   - [x] Teste 2 (E2E): offline + tentativa de salvar venda → bloqueado com mensagem clara; ao reconectar, a gravação volta a funcionar — _mesma spec: venda pública não chega ao banco offline; o botão reativa após reconexão e a venda é persistida somente após novo clique explícito_
-- [ ] **PB-9 · Rodapé da T4 com contato do organizador (perfil da conta)**
-  - [ ] Teste 1 (E2E): nome de exibição + WhatsApp do perfil aparecem no rodapé
-  - [ ] Teste 2 (E2E): perfil incompleto → rodapé exibe fallback claro (sem placeholder técnico)
+- [x] **PB-9 · Rodapé da T4 com contato do organizador (perfil da conta)** _(T4 carrega apenas `nome_exibicao` e `whatsapp` do perfil vinculado à rifa; mostra contato do organizador, WhatsApp formatado com link `wa.me` e fallbacks pt-BR para cada campo ausente/inválido. Cobertura em `tests/e2e/contato-organizador-t4.spec.ts` usa conta isolada provisionada e removida pelo próprio teste.)_
+  - [x] Teste 1 (E2E): nome de exibição + WhatsApp do perfil aparecem no rodapé — _perfil salvo via tela `/perfil`; T4 exibe nome, telefone formatado e link com DDI normalizado_
+  - [x] Teste 2 (E2E): perfil incompleto → rodapé exibe fallback claro (sem placeholder técnico) — _perfil com nome/WhatsApp vazios mostra mensagens pt-BR, sem link ou `undefined`_
 
 **Checkpoint Fase 4:** visitante sem login vê a rifa e o resultado; venda via link público persistida; app instalável — marco M4 fechado.
 

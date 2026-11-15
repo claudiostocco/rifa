@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/Badge";
 import { classesBotaoPrimario } from "@/components/ui/Button";
 import { ROTULO_STATUS, tipoDoBadge } from "@/lib/estados";
 import { formatarData, formatarFrasePremio, formatarMoeda } from "@/lib/formato";
+import { formatarTelefone } from "@/lib/formato";
 import { eRotuloPremio } from "@/lib/schemas";
 import { criarClienteServidor } from "@/lib/supabase/server";
 
@@ -61,7 +62,7 @@ function Recusa({
  *
  * Estados da §3.5: carregando (skeleton do segmento) | pronta | sorteada
  * (destaque do vencedor 🏆 na grade + link "Ver resultado"). Busca rápida,
- * rodapé do organizador, foto e offline seguem nas PB-4..PB-9.
+   * rodapé do organizador e foto já estão conectados; offline fica nas PB-8.
  */
 export default async function PaginaRifaPublica({ params }: Props) {
   const { slug } = await params;
@@ -72,7 +73,7 @@ export default async function PaginaRifaPublica({ params }: Props) {
   const { data: rifa, error: erroLeitura } = await supabase
     .from("rifas")
     .select(
-      "id, slug, titulo, descricao, premio_descricao, premio_rotulo, premio_valor, numero_valor, quantidade, qtd_minima, data_prevista, imagem_url, status",
+      "id, perfil_id, slug, titulo, descricao, premio_descricao, premio_rotulo, premio_valor, numero_valor, quantidade, qtd_minima, data_prevista, imagem_url, status",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -102,6 +103,24 @@ export default async function PaginaRifaPublica({ params }: Props) {
   const frasePremio = eRotuloPremio(rifa.premio_rotulo)
     ? formatarFrasePremio(rifa.premio_rotulo, rifa.premio_descricao, rifa.premio_valor)
     : `${rifa.premio_descricao} — ${formatarMoeda(rifa.premio_valor)}`;
+  const { data: perfil } = await supabase
+    .from("perfis")
+    .select("nome_exibicao, whatsapp")
+    .eq("id", rifa.perfil_id)
+    .maybeSingle();
+  const nomeOrganizador = perfil?.nome_exibicao.trim() ?? "";
+  const whatsapp = perfil?.whatsapp.trim() ?? "";
+  const whatsappDigitos = whatsapp.replace(/\D/gu, "");
+  let whatsappFormatado = "";
+  let whatsappValido = false;
+  if (whatsapp) {
+    try {
+      whatsappFormatado = formatarTelefone(whatsapp);
+      whatsappValido = /^\d{12,13}$/u.test(whatsappDigitos);
+    } catch {
+      whatsappFormatado = "";
+    }
+  }
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-12 pt-8">
@@ -173,6 +192,28 @@ export default async function PaginaRifaPublica({ params }: Props) {
           />
         </Suspense>
       </div>
+
+      <footer
+        aria-label="Contato do organizador"
+        className="mt-8 rounded-card border border-linha bg-white p-4 text-center"
+      >
+        <p className="text-sm font-semibold text-tinta">Para comprar, fale com o organizador</p>
+        {nomeOrganizador ? (
+          <p className="mt-1 text-sm text-tinta-suave">{nomeOrganizador}</p>
+        ) : (
+          <p className="mt-1 text-sm text-tinta-suave">Nome do organizador não informado.</p>
+        )}
+        {whatsappValido ? (
+          <a
+            href={`https://wa.me/${whatsappDigitos}`}
+            className="mt-2 inline-flex min-h-[44px] items-center font-semibold text-marca underline underline-offset-2"
+          >
+            WhatsApp: {whatsappFormatado}
+          </a>
+        ) : (
+          <p className="mt-2 text-sm text-tinta-suave">WhatsApp do organizador não informado.</p>
+        )}
+      </footer>
     </main>
   );
 }

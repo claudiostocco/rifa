@@ -32,7 +32,7 @@ test.describe("FD-9 · perfil do organizador", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Meu perfil" })).toBeVisible();
 
     await page.getByLabel("Nome de exibição").fill("Organizador da Rifa");
-    await page.getByLabel("WhatsApp").fill("(11) 98888-7777");
+    await page.getByLabel("WhatsApp").fill("(11) 97777-6666");
     await page.getByRole("button", { name: "Salvar perfil" }).click();
 
     await expect(page.getByText("Perfil salvo com sucesso.")).toBeVisible();

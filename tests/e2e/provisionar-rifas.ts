@@ -24,6 +24,8 @@ export type RifaDeTeste = { id: string; slug: string; titulo: string };
 type OpcoesRifaDeTeste = {
   /** Título base; um sufixo único é acrescentado para execução paralela. */
   titulo: string;
+  /** Perfil dono da rifa quando o cenário usa um organizador alternativo. */
+  perfilId?: string;
   /** PB-1 · descrição da rifa (exibida no cabeçalho da T4 — §3.5). */
   descricao?: string;
   status?: "aberta" | "encerrada" | "sorteada";
@@ -115,6 +117,7 @@ export function registrarRifaParaLimpeza(id: string): void {
  */
 export async function criarRifaDeTeste({
   titulo,
+  perfilId,
   descricao,
   status = "aberta",
   arquivada = false,
@@ -133,9 +136,9 @@ export async function criarRifaDeTeste({
   const admin = clienteAdmin();
 
   const { data: listagem } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-  const usuario = listagem?.users.find(
-    (candidato) => candidato.email === CREDENCIAIS_ORGANIZADOR.email,
-  );
+  const usuario = perfilId
+    ? listagem?.users.find((candidato) => candidato.id === perfilId)
+    : listagem?.users.find((candidato) => candidato.email === CREDENCIAIS_ORGANIZADOR.email);
   if (!usuario) {
     throw new Error(
       `Organizador ${CREDENCIAIS_ORGANIZADOR.email} não encontrado — chame provisionarOrganizador() no beforeAll.`,
