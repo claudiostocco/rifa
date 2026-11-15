@@ -12,6 +12,7 @@ import { NumerosDaRifa } from "@/components/NumerosDaRifa";
 import { EsqueletoResumo, ResumoRifa } from "@/components/ResumoRifa";
 import { Badge } from "@/components/ui/Badge";
 import { ROTULO_STATUS, tipoDoBadge } from "@/lib/estados";
+import { ToastRaiz } from "@/components/ToastRaiz";
 import {
   formatarData,
   formatarFrasePremio,
@@ -194,6 +195,11 @@ export default async function PaginaPainelRifa({ params }: Props) {
       <Suspense fallback={<EsqueletoAcoes />}>
         <AcoesCicloRifa rifaId={rifa.id} status={rifa.status} qtdMinima={rifa.qtd_minima} />
       </Suspense>
+
+      {/* SR-8 · Host do toast no nível raiz (padrão SR-5): sobrevive ao
+          `router.refresh()` que remove o cartão do resultado — o feedback da
+          anulação não morre com o próprio sucesso. */}
+      <ToastRaiz />
     </main>
   );
 }

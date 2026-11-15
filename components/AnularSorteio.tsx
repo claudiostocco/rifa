@@ -14,7 +14,9 @@
  * Sucesso → Toast pt-BR + `router.refresh()`: o cartão sai de cena (não há
  * mais vigente), o badge vira 🔒 Encerrada e a barra de ações da etapa
  * `encerrada` volta (Realizar Sorteio / Reabrir vendas). Recusa → Toast de
- * erro, nunca engolida (padrão VT-4/SR-7).
+ * erro, nunca engolida (padrão VT-4/SR-7). Em ambos os casos o toast vive no
+ * HOST RAIZ (`ToastRaiz`, padrão SR-5): o próprio sucesso desmonta este
+ * componente junto com o cartão, e o feedback não pode morrer com ele.
  */
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -22,23 +24,20 @@ import { useState, useTransition } from "react";
 import { desfazerSorteio, type EstadoAnulacao } from "@/actions/sorteio";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import { Toast } from "@/components/ui/Toast";
+import { emitirToastRaiz } from "@/components/ToastRaiz";
 
 type Props = { rifaId: string };
-
-type Aviso = { mensagem: string; tipo: "sucesso" | "erro" };
 
 export function AnularSorteio({ rifaId }: Props) {
   const router = useRouter();
   const [confirmacaoAberta, setConfirmacaoAberta] = useState(false);
-  const [aviso, setAviso] = useState<Aviso | null>(null);
   const [pendente, iniciarPendente] = useTransition();
 
   const anular = () => {
     setConfirmacaoAberta(false);
     iniciarPendente(async () => {
       const resultado: EstadoAnulacao = await desfazerSorteio(rifaId);
-      setAviso({ mensagem: resultado.mensagem, tipo: resultado.ok ? "sucesso" : "erro" });
+      emitirToastRaiz({ mensagem: resultado.mensagem, tipo: resultado.ok ? "sucesso" : "erro" });
       if (resultado.ok) router.refresh();
     });
   };
@@ -86,10 +85,6 @@ export function AnularSorteio({ rifaId }: Props) {
           </div>
         </div>
       </Modal>
-
-      {aviso ? (
-        <Toast mensagem={aviso.mensagem} tipo={aviso.tipo} aoEncerrar={() => setAviso(null)} />
-      ) : null}
     </>
   );
 }
