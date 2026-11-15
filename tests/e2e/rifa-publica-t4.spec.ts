@@ -100,9 +100,10 @@ test.describe("PB-1 · T4 · Rifa pública (§3.5)", () => {
     await expect(page.getByLabel("Número 100, disponível")).toBeVisible();
     await expect(page.getByLabel(/^Número \d{3},/)).toHaveCount(100);
 
-    // PB-1 ainda não entrega interação (o modal público é a PB-2): nenhuma
-    // pastilha é botão — o toque chega com o modal enxuto.
-    await expect(page.getByRole("button", { name: /^Número \d{3},/ })).toHaveCount(0);
+    // PB-2 tornou as pastilhas tocáveis (modal público enxuto): todas as
+    // 100 são botões — o toque em disponível abre o registro de comprador
+    // (venda-publica-t4.spec.ts); a grade segue sem dados de comprador.
+    await expect(page.getByRole("button", { name: /^Número \d{3},/ })).toHaveCount(100);
 
     // Privacidade (RNF-05): zero nomes/telefones no DOM inteiro.
     await asseverarCompradorAusente(page);

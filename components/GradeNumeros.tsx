@@ -70,10 +70,10 @@ type Props = {
    */
   numeroDestaque?: number;
   /**
-   * Ação do toque em qualquer pastilha (abrir modal — VT-4/PB-2). Omitido na
-   * T4 PB-1 (§3.5): a grade pública só EXIBE estados (vendido não tem nome nem
-   * telefone) e as pastilhas saem como texto não interativo até o modal
-   * público chegar na PB-2 — botão morto não entra na tela (RNF-03).
+   * Ação do toque em qualquer pastilha (abrir modal — VT-4/PB-2). Na T4 o
+   * toque despacha o modal enxuto da PB-2 (§3.5): disponível abre o
+   * registro de comprador; vendido/sorteado mostra "Número já vendido."
+   * sem formulário — nada de edição na tela pública (RN-03).
    */
   aoTocarNumero?: (numero: number) => void;
 };
@@ -148,8 +148,8 @@ export function GradeNumeros({
                 </span>
               ) : null;
 
-              // T3: botão que despacha ao consumidor; T4 (PB-1): só o estado —
-              // sem elemento morto na tabulação.
+              // T3/T4: botão que despacha ao consumidor (T4 sem callback
+              // nenhum — PB-1 pura leitura — sai como texto na tabulação).
               return aoTocarNumero ? (
                 <button
                   key={pastilha.numero}

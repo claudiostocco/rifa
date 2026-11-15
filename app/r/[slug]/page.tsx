@@ -60,7 +60,7 @@ function Recusa({
  *
  * Estados da §3.5: carregando (skeleton do segmento) | pronta | sorteada
  * (destaque do vencedor 🏆 na grade + link "Ver resultado"). Busca rápida,
- * modal público, rodapé do organizador, foto e offline seguem nas PB-2..PB-9.
+ * rodapé do organizador, foto e offline seguem nas PB-4..PB-9.
  */
 export default async function PaginaRifaPublica({ params }: Props) {
   const { slug } = await params;
@@ -152,10 +152,15 @@ export default async function PaginaRifaPublica({ params }: Props) {
 
       {/* Grade de números (§3.5): em streaming com skeleton estável; leitura
           sob RLS pública — disponível/vendido/sorteado, sem dados de comprador.
-          O toque (modal público enxuto) chega na PB-2. */}
+          PB-2: o toque abre o modal enxuto (só a etapa `aberta` vende). */}
       <div className="mt-4">
         <Suspense fallback={<EsqueletoGrade />}>
-          <GradePublica rifaId={rifa.id} quantidade={rifa.quantidade} hrefRecarga={`/r/${rifa.slug}`} />
+          <GradePublica
+            rifaId={rifa.id}
+            quantidade={rifa.quantidade}
+            vendasAbertas={rifa.status === "aberta"}
+            hrefRecarga={`/r/${rifa.slug}`}
+          />
         </Suspense>
       </div>
     </main>

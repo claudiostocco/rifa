@@ -22,8 +22,13 @@
  * comprador existente por (rifa_id, telefone) reusa a linha em vez de
  * duplicar o comprador da mesma pessoa na rifa.
  *
- * Origem da venda (RN-03/§2.4) é SEMPRE definida aqui no servidor
- * ('organizador'); a variante pública chega na PB-2/PB-3.
+ * Origem da venda (RN-03/§2.4) é SEMPRE definida aqui no servidor:
+ * `registrarVenda` grava 'organizador' (T3) e `registrarVendaPublica` grava
+ * 'publico' (T4, PB-2) — o payload nunca traz origem. A action pública NÃO
+ * exige sessão (o visitante é anon), mas escreve pelos MESMOS caminhos
+ * conferidos com `service_role`: rifa publicada e `aberta`, número
+ * `disponivel`, dados de comprador válidos — nunca INSERT direto do anon.
+ * (O rate limit por IP/sessão chega na PB-3.)
  */
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -39,6 +44,9 @@ const RECUSA_SESSAO = "Sua sessão expirou. Entre novamente para continuar.";
 const RECUSA_NAO_ENCONTRADA = "Não encontramos esse número na sua conta.";
 const RECUSA_CORRIDA = "Esse número acabou de ser vendido";
 const RECUSA_ENCERRADA = "As vendas desta rifa estão encerradas.";
+/** §3.5 · texto prescrito da variante pública para número já ocupado (PB-2). */
+const RECUSA_JA_VENDIDO_PUBLICA = "Número já vendido.";
+const RECUSA_RIFA_PUBLICA = "Não encontramos essa rifa. Confira o link com quem a criou.";
 const RECUSA_SORTEADA =
   "O sorteio já foi realizado. Desfaça-o antes de alterar o histórico desta rifa.";
 const RECUSA_BANCO_REGISTRO =
@@ -83,6 +91,51 @@ async function buscarNumeroProprio(
     numero: data.numero,
     status: statusNumero,
     rifaId: data.rifa_id,
+    statusRifa,
+  };
+}
+
+/**
+ * PB-2 · Número da T4 para o visitante anon: posse NÃO é conferida (não há
+ * sessão), mas a rifa precisa estar PUBLICADA (nem arquivada nem excluída —
+ * o que o anon não veria pela RLS) para a venda pública existir.
+ */
+type NumeroPublico = {
+  id: string;
+  numero: number;
+  status: "disponivel" | "vendido";
+  rifaId: string;
+  slug: string;
+  statusRifa: "aberta" | "encerrada" | "sorteada";
+};
+
+async function buscarNumeroPublico(
+  admin: ReturnType<typeof criarClienteAdministrador>,
+  numeroId: string,
+): Promise<NumeroPublico | null> {
+  const { data, error } = await admin
+    .from("numeros")
+    .select("id, numero, status, rifa_id, rifas!inner(status, arquivada, excluida, slug)")
+    .eq("id", numeroId)
+    .maybeSingle();
+
+  if (error || !data || data.rifas.arquivada || data.rifas.excluida) return null;
+
+  // Status chegam como string do banco (CHECK sem enum — regra FD-4): afunilar
+  // com guarda; valor fora do domínio do CHECK é bug de banco → recusa segura.
+  const statusNumero: NumeroPublico["status"] =
+    data.status === "vendido" ? "vendido" : "disponivel";
+  const statusRifa = data.rifas.status;
+  if (statusRifa !== "aberta" && statusRifa !== "encerrada" && statusRifa !== "sorteada") {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    numero: data.numero,
+    status: statusNumero,
+    rifaId: data.rifa_id,
+    slug: data.rifas.slug,
     statusRifa,
   };
 }
@@ -216,6 +269,65 @@ export async function registrarVenda(payload: VendaInput): Promise<EstadoVenda> 
   }
 
   // Grade, resumo e histórico da T3 re-renderizam no mesmo roundtrip.
+  revalidatePath(`/rifas/${numero.rifaId}`);
+  return { ok: true, mensagem: "Venda registrada com sucesso." };
+}
+
+/**
+ * RF-05a · `registrarVendaPublica` (visitante anon, T4 — variante enxuta da
+ * §3.5/PB-2). Mesma porta de escrita e MESMAS camadas de RN-03 da
+ * `registrarVenda`, mas SEM sessão: a conferência é no servidor
+ * (`service_role`) — o anon nunca escreve direto no banco (RLS o nega).
+ *
+ * Ordem de conferência da §4.5: dados válidos (Zod) → rifa publicada e
+ * `aberta` → número `disponivel` → corrida decidida pelo UPDATE condicional.
+ * Recusas prescritas: rifa encerrada/sorteada, "Número já vendido" (número
+ * ocupado antes do toque) e "Esse número acabou de ser vendido" (corrida,
+ * §4.5). A origem 'publico' é ficada aqui — nunca no payload.
+ */
+export async function registrarVendaPublica(payload: VendaInput): Promise<EstadoVenda> {
+  const parse = VendaInputSchema.safeParse(payload);
+  if (!parse.success) {
+    const problema = parse.error.issues[0];
+    return { ok: false, mensagem: problema?.message ?? "Verifique os dados do comprador." };
+  }
+
+  const admin = criarClienteAdministrador();
+  const numero = await buscarNumeroPublico(admin, parse.data.numeroId);
+  if (!numero) {
+    return { ok: false, mensagem: RECUSA_RIFA_PUBLICA };
+  }
+  if (numero.statusRifa !== "aberta") {
+    return { ok: false, mensagem: RECUSA_ENCERRADA };
+  }
+  if (numero.status !== "disponivel") {
+    return { ok: false, mensagem: RECUSA_JA_VENDIDO_PUBLICA };
+  }
+
+  const { numeroId, nome, telefone } = parse.data;
+  const ganhouCorrida = await virarVendido(admin, numeroId);
+  if (!ganhouCorrida) {
+    return { ok: false, mensagem: RECUSA_CORRIDA };
+  }
+
+  const comprador = await compradorDaRifa(admin, numero.rifaId, nome, telefone);
+  if (!comprador) {
+    await devolverNumero(admin, numeroId);
+    return { ok: false, mensagem: RECUSA_BANCO_REGISTRO };
+  }
+
+  const { error: erroVenda } = await admin
+    .from("vendas")
+    .insert({ numero_id: numeroId, comprador_id: comprador.id, origem: "publico" });
+
+  if (erroVenda) {
+    await devolverNumero(admin, numeroId);
+    return { ok: false, mensagem: RECUSA_BANCO_REGISTRO };
+  }
+
+  // A T4 do visitante e a T3 do organizador re-renderizam; o ao vivo é do
+  // canal Realtime (RF-18), que a própria UI da venda já dispara pelo banco.
+  revalidatePath(`/r/${numero.slug}`);
   revalidatePath(`/rifas/${numero.rifaId}`);
   return { ok: true, mensagem: "Venda registrada com sucesso." };
 }

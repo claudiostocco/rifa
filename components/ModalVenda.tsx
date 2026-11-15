@@ -12,6 +12,10 @@
  * servidor chega como `erroServidor` — exibida com `role=alert`, modal
  * permanece aberto; recusas de corrida ("Esse número acabou de ser
  * vendido") nunca são engolidas.
+ *
+ * PB-2 · variante pública (§3.5, "modal enxuto"): o consumidor T4 omite
+ * `aoRemover` e nunca abre o modal em número vendido — só o registro de
+ * comprador em número disponível existe na T4.
  */
 import { useState, type FormEvent } from "react";
 
@@ -39,7 +43,13 @@ type Props = {
   erroServidor: string | null;
   /** Registrar (disponível) ou transferir (vendido) — o consumidor decide. */
   aoEnviar: (nome: string, telefoneE164: string) => void;
-  aoRemover: () => void;
+  /**
+   * Remoção com confirmação (RF-06, exclusiva do organizador). Omitida na
+   * variante pública (PB-2/§3.5: a T4 não edita, transfere nem remove) —
+   * sem o callback o bloco de remoção não entra no DOM (RNF-03: botão morto
+   * não existe).
+   */
+  aoRemover?: () => void;
   aoFechar: () => void;
 };
 
@@ -104,10 +114,14 @@ export function ModalVenda({
     <Modal aberto aoFechar={aoFechar} titulo={`Número ${formatarNumero(numero)}`}>
       <form onSubmit={aoSubmeter} className="space-y-4" noValidate>
         {vendido ? (
-          <p className="text-xs text-tinta-suave">
-            Venda registrada. Você pode transferir para outro comprador ou remover a venda — o
-            histórico fica preservado.
-          </p>
+          aoRemover ? (
+            <p className="text-xs text-tinta-suave">
+              Venda registrada. Você pode transferir para outro comprador ou remover a venda — o
+              histórico fica preservado.
+            </p>
+          ) : (
+            <p className="text-xs text-tinta-suave">Número já vendido.</p>
+          )
         ) : null}
 
         <Input
@@ -147,7 +161,7 @@ export function ModalVenda({
             {pendente ? "Salvando…" : "Salvar"}
           </Button>
 
-          {vendido ? (
+          {vendido && aoRemover ? (
             confirmandoRemocao ? (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3">
                 <p className="text-sm font-medium text-red-800">

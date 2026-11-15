@@ -441,6 +441,44 @@ export async function venderNumeroDeTeste(
 }
 
 /**
+ * PB-2 · leitura da venda VIGENTE de um número (RN-03: removida_em IS NULL) —
+ * o E2E da T4 cruza o que a tela registrou com o que o banco gravou,
+ * conferindo a `origem='publico'` que a `registrarVendaPublica` fica.
+ */
+export async function lerVendaVigenteDeTeste(
+  rifaId: string,
+  numero: number,
+): Promise<{ origem: "organizador" | "publico"; nome: string } | null> {
+  const admin = clienteAdmin();
+
+  const { data: alvo, error: erroAlvo } = await admin
+    .from("numeros")
+    .select("id")
+    .eq("rifa_id", rifaId)
+    .eq("numero", numero)
+    .single();
+  if (erroAlvo || !alvo) {
+    throw new Error(
+      `Falha ao buscar número ${numero} para a leitura da venda: ${JSON.stringify(erroAlvo)}`,
+    );
+  }
+
+  const { data } = await admin
+    .from("vendas")
+    .select("origem, compradores(nome)")
+    .eq("numero_id", alvo.id)
+    .is("removida_em", null)
+    .maybeSingle();
+  if (!data) return null;
+
+  const nome = Array.isArray(data.compradores) ? data.compradores[0]?.nome : data.compradores?.nome;
+  if (typeof nome !== "string") return null;
+  // Origem chega como string do CHECK (regra FD-4): afunilar com guarda.
+  if (data.origem !== "organizador" && data.origem !== "publico") return null;
+  return { origem: data.origem, nome };
+}
+
+/**
  * SR-5 · leitura do sorteio VIGENTE (RN-08: `anulado_em IS NULL`) da rifa —
  * o E2E da roleta cruza o que a animação exibiu com o que o servidor gravou
  * (§4.9: "desacelera no número já retornado pelo servidor").
