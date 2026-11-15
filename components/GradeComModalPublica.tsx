@@ -32,6 +32,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { registrarVendaPublica, type EstadoVenda } from "@/actions/vendas";
 import { GradeNumeros } from "@/components/GradeNumeros";
 import { ModalVenda } from "@/components/ModalVenda";
+import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
 import type { NumeroDaGrade } from "@/components/GradeComModal";
 import type { StatusNumero } from "@/lib/estados";
@@ -71,6 +72,7 @@ export function GradeComModalPublica({
   const [numeroSelecionado, setNumeroSelecionado] = useState<number | null>(null);
   const [erroServidor, setErroServidor] = useState<string | null>(null);
   const [aviso, setAviso] = useState<Aviso | null>(null);
+  const [buscaNumero, setBuscaNumero] = useState("");
   // VT-6 · otimismo por número: `{ de, para }` condicional ao pré-ação (§2.7).
   const [otimistas, setOtimistas] = useState<Map<number, Otimismo>>(new Map());
   const [pendente, iniciarPendente] = useTransition();
@@ -147,6 +149,18 @@ export function GradeComModalPublica({
           }),
     [numeros, otimistas],
   );
+
+  // PB-4 · T4 busca SOMENTE número exato (RF-07 opcional). Texto livre,
+  // nome ou telefone nunca consulta nem revela compradores (RN-02/RNF-05).
+  const consulta = buscaNumero.trim();
+  const numeroConsultado =
+    /^\d+$/u.test(consulta) && Number.isSafeInteger(Number(consulta))
+      ? Number(consulta)
+      : null;
+  const existeNumeroConsultado =
+    numeroConsultado !== null && mapaNumeros.has(numeroConsultado);
+  const numeroDestaque = existeNumeroConsultado ? numeroConsultado : undefined;
+  const semResultado = consulta.length > 0 && !existeNumeroConsultado;
 
   /** Toque da T4 (§3.5): disponível abre o modal; ocupado/encerrada avisa. */
   const tocar = (numero: number) => {
@@ -225,12 +239,38 @@ export function GradeComModalPublica({
 
   return (
     <div aria-busy={pendente}>
-      <GradeNumeros
-        numeros={numerosExibidos}
-        quantidade={quantidade}
-        numeroSorteado={numeroSorteado}
-        aoTocarNumero={tocar}
-      />
+      <div className="mb-3">
+        <Input
+          id={`buscar-numero-publico-${rifaId}`}
+          rotulo="Buscar número"
+          placeholder="Ex.: 57"
+          type="search"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="off"
+          value={buscaNumero}
+          onChange={(evento) => setBuscaNumero(evento.target.value)}
+          dica="Digite o número exato. Nome e telefone de compradores não são pesquisados."
+        />
+      </div>
+
+      {semResultado ? (
+        <p
+          role="status"
+          className="rounded-card border border-linha bg-white px-4 py-8 text-center text-sm text-tinta-suave"
+        >
+          Nenhum número encontrado para &quot;{consulta}&quot;.
+        </p>
+      ) : (
+        <GradeNumeros
+          numeros={numerosExibidos}
+          quantidade={quantidade}
+          numeroSorteado={numeroSorteado}
+          numeroDestaque={numeroDestaque}
+          numeroBusca={numeroDestaque}
+          aoTocarNumero={tocar}
+        />
+      )}
 
       {/* Modal enxuto (§3.5): sem `aoRemover` — a T4 não edita nem remove. */}
       {selecionado ? (

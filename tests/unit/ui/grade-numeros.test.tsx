@@ -111,6 +111,25 @@ describe("GradeNumeros · Teste 2 (unit) — borda/erro (§3.4.4)", () => {
 });
 
 describe("GradeNumeros · extras (borda)", () => {
+  it("deve abrir diretamente o bloco do número encontrado pela busca pública", () => {
+    render(
+      <GradeNumeros
+        numeros={pastilhas(5000)}
+        quantidade={5000}
+        numeroBusca={4250}
+        numeroDestaque={4250}
+        aoTocarNumero={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Número 4250, disponível" })).toHaveClass(
+      "ring-2",
+      "ring-marca",
+    );
+    expect(screen.queryByRole("button", { name: "Número 001, disponível" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Ir para o bloco de números")).toHaveValue("42");
+  });
+
   it("deve exibir o estado de exibição 'sorteado' (§2.7) sobre o status da tabela com destaque dourado", () => {
     render(
       <GradeNumeros

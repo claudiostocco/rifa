@@ -121,7 +121,9 @@ test.describe("VT-8 · Teste 2 — filtro de estado e busca sem resultado", () =
     // Busca sem resultado ("600": fora da faixa e não está em telefone
     // nenhum): estado vazio CLARO, com a consulta citada e caminho de saída.
     await page.getByLabel(BUSCA).fill("600");
-    const vazio = page.getByRole("status");
+    const vazio = page.getByRole("status").filter({
+      hasText: 'Nenhum número encontrado para "600".',
+    });
     await expect(vazio).toContainText('Nenhum número encontrado para "600".');
     await expect(vazio.getByRole("button", { name: "Limpar busca e filtros" })).toBeVisible();
     await expect(page.locator('[aria-label="Grade de números da rifa"] button')).toHaveCount(0);

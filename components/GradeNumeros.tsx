@@ -67,8 +67,10 @@ type Props = {
   /**
    * VT-8 · número exato encontrado pela busca (§3.4.3/RF-07): anel de destaque
    * por cima do estado — a pastilha segue tocável com seu rótulo normal.
-   */
+  */
   numeroDestaque?: number;
+  /** PB-4 · número exato a localizar; deriva seu bloco sem estado/effect. */
+  numeroBusca?: number;
   /**
    * Ação do toque em qualquer pastilha (abrir modal — VT-4/PB-2). Na T4 o
    * toque despacha o modal enxuto da PB-2 (§3.5): disponível abre o
@@ -83,6 +85,7 @@ export function GradeNumeros({
   quantidade,
   numeroSorteado,
   numeroDestaque,
+  numeroBusca,
   aoTocarNumero,
 }: Props) {
   const [blocoIndice, setBlocoIndice] = useState(0);
@@ -106,9 +109,15 @@ export function GradeNumeros({
   // Paginação por faixa de número (001–100, 101–200…), não por posição do
   // array: buracos de dados deslocam blocos, a numeração não.
   const totalBlocos = Math.max(1, Math.ceil(quantidade / BLOCO_TAMANHO));
-  // Derivado em render (sem effect): dados encolhendo nunca deixam o bloco
+  // Derivado em render (sem effect): a busca pública pode ancorar a grade no
+  // bloco do número exato; sem busca, dados encolhendo nunca deixam o bloco
   // atual fora da faixa de blocos existentes.
-  const bloco = Math.min(blocoIndice, totalBlocos - 1);
+  const bloco = Math.min(
+    numeroBusca === undefined
+      ? blocoIndice
+      : Math.floor((numeroBusca - 1) / BLOCO_TAMANHO),
+    totalBlocos - 1,
+  );
   const inicio = bloco * BLOCO_TAMANHO + 1;
   const fim = Math.min((bloco + 1) * BLOCO_TAMANHO, quantidade);
   const visiveis = ordenadas.filter(
