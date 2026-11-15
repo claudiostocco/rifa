@@ -9,7 +9,7 @@
  * pública na PB-2). Nada de consulta nem escrita aqui — a grade nunca é
  * fonte de verdade (o servidor confere estado, §2.7).
  */
-import { useState, type ChangeEvent } from "react";
+import { useMemo, useState, type ChangeEvent } from "react";
 
 import { Button } from "@/components/ui/Button";
 import type { StatusNumero } from "@/lib/estados";
@@ -91,20 +91,40 @@ export function GradeNumeros({
   const [blocoIndice, setBlocoIndice] = useState(0);
 
   // Fora da faixa 1..quantidade nunca renderiza (§3.4.4) e o formato pt-BR
-  // (formatarNumero) só é pedido para o que está nela — dado malformado do
-  // banco não derruba a tela. Map deduplica (UNIQUE (rifa_id, numero)) e
-  // conserva a última ocorrência.
-  const emFaixa = new Map<number, PastilhaNumero>();
-  for (const pastilha of numeros) {
-    if (
-      Number.isInteger(pastilha.numero) &&
-      pastilha.numero >= 1 &&
-      pastilha.numero <= quantidade
-    ) {
-      emFaixa.set(pastilha.numero, pastilha);
+  // (formatarNumero) só é pedido para o que está nela. Cada bloco é ordenado
+  // separadamente: rifas de 5.000 não pagam uma ordenação global em cada
+  // render, embora a deduplicação defensiva continue preservada.
+  const blocos = useMemo(() => {
+    const emFaixa = new Map<number, PastilhaNumero>();
+    for (const pastilha of numeros) {
+      if (
+        Number.isInteger(pastilha.numero) &&
+        pastilha.numero >= 1 &&
+        pastilha.numero <= quantidade
+      ) {
+        emFaixa.set(pastilha.numero, pastilha);
+      }
     }
-  }
-  const ordenadas = [...emFaixa.values()].sort((a, b) => a.numero - b.numero);
+
+    const agrupados = new Map<number, PastilhaNumero[]>();
+    for (const pastilha of emFaixa.values()) {
+      const indice = Math.floor((pastilha.numero - 1) / BLOCO_TAMANHO);
+      const grupo = agrupados.get(indice);
+      if (grupo) {
+        grupo.push(pastilha);
+      } else {
+        agrupados.set(indice, [pastilha]);
+      }
+    }
+    for (const grupo of agrupados.values()) {
+      grupo.sort((a, b) => a.numero - b.numero);
+    }
+    return agrupados;
+  }, [numeros, quantidade]);
+  const totalNumeros = useMemo(
+    () => [...blocos.values()].reduce((total, grupo) => total + grupo.length, 0),
+    [blocos],
+  );
 
   // Paginação por faixa de número (001–100, 101–200…), não por posição do
   // array: buracos de dados deslocam blocos, a numeração não.
@@ -120,9 +140,7 @@ export function GradeNumeros({
   );
   const inicio = bloco * BLOCO_TAMANHO + 1;
   const fim = Math.min((bloco + 1) * BLOCO_TAMANHO, quantidade);
-  const visiveis = ordenadas.filter(
-    (pastilha) => pastilha.numero >= inicio && pastilha.numero <= fim,
-  );
+  const visiveis = blocos.get(bloco) ?? [];
 
   const trocarBloco = (evento: ChangeEvent<HTMLSelectElement>) => {
     setBlocoIndice(Number(evento.target.value));
@@ -133,7 +151,7 @@ export function GradeNumeros({
       aria-label="Grade de números da rifa"
       className="rounded-card border border-linha bg-white p-4 shadow-sm"
     >
-      {ordenadas.length === 0 ? (
+      {totalNumeros === 0 ? (
         <p className="py-8 text-center text-sm text-tinta-suave">Nenhum número para exibir.</p>
       ) : (
         <>

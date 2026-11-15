@@ -165,7 +165,12 @@ export function GradeComModalPublica({
   /** Toque da T4 (§3.5): disponível abre o modal; ocupado/encerrada avisa. */
   const tocar = (numero: number) => {
     setErroServidor(null);
-    const pastilha = numerosExibidos.find((item) => item.numero === numero);
+    const pastilhaBase = mapaNumeros.get(numero);
+    const otimismo = otimistas.get(numero);
+    const pastilha =
+      otimismo && pastilhaBase && otimismo.de === pastilhaBase.status
+        ? { ...pastilhaBase, status: otimismo.para }
+        : pastilhaBase;
     if (!pastilha) return;
 
     if (pastilha.status !== "disponivel") {

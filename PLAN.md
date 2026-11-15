@@ -222,9 +222,9 @@
 - [x] **PL-2 · Acessibilidade & touch (RNF-03)** — alvos do design system ≥ 44px, contraste WCAG AA, foco visível e ciclo de teclado do modal _(modal prende Tab/Shift+Tab, inicia no primeiro campo, fecha por Escape e devolve foco ao acionador; fechamento por Toast tem 44×44px; placeholder usa texto com contraste integral; tokens de verde/dourado escurecidos para atingir AA em texto pequeno)_
   - [x] Teste 1 (unit/E2E): navegação por teclado grade → modal → salvar, com focus trap correto no modal — _`tests/e2e/acessibilidade-pl2.spec.ts`: ativar número com Enter, preencher campos e salvar por teclado; teste de limite Tab/Shift+Tab, Escape e restauração do foco_
   - [x] Teste 2 (unit): auditoria automática de contraste e tamanhos nos componentes `ui/` sem violações críticas — _`tests/unit/ui/acessibilidade.test.tsx`: valida classes/estados dos componentes, tamanhos mínimos e contraste ≥ 4,5:1 dos pares de texto (inclui status, hover, erro e placeholders)_
-- [ ] **PL-3 · Desempenho (RNF-04)** — grade de 5.000 números fluida; carregamento da rifa < 2s em 4G
-  - [ ] Teste 1 (E2E/perf): paginação na rifa de 5.000 sem travamentos (medição de fps/jank)
-  - [ ] Teste 2 (E2E/perf): carga fria de `/r/{slug}` < 2s em ambiente mobile (média de 3 execuções)
+- [x] **PL-3 · Desempenho (RNF-04)** — grade de 5.000 números fluida; carregamento da rifa < 2s em 4G _(grade agrupada/deduplicada uma vez por dados e ordenada apenas por bloco; lookup público usa mapa memoizado)_
+  - [x] Teste 1 (E2E/perf): paginação na rifa de 5.000 sem travamentos (medição de fps/jank) — _`tests/e2e/desempenho-pl3.spec.ts`: exatamente 100 células no DOM, troca de bloco abaixo de 500 ms e pausa máxima de frames abaixo de 250 ms_
+  - [x] Teste 2 (E2E/perf): carga fria de `/r/{slug}` < 2s em ambiente mobile (média de 3 execuções) — _mesma spec: cache desabilitado via CDP e média de três navegações abaixo de 2.000 ms_
 - [ ] **PL-4 · Revisão de segurança end-to-end**
   - [ ] Teste 1 (int): suíte completa de RLS reexecutada em staging (anon lê o permitido, grava nada e nunca vê compradores)
   - [ ] Teste 2 (int): `service_role` e segredos não aparecem no bundle do client (grep do build + testes de runtime)
