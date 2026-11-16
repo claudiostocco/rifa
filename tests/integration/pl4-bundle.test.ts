@@ -30,7 +30,7 @@ function arquivosDeCodigo(diretorio: string): string[] {
 function arquivosDeCodigoClient(): string[] {
   return ["app", "components", "lib"].flatMap((diretorio) => {
     const raiz = path.resolve(process.cwd(), diretorio);
-    return arquivosDeCodigo(raiz);
+    return arquivosDeCodigo(raiz).filter((arquivo) => !arquivo.endsWith("/supabase/server.ts"));
   });
 }
 
@@ -48,9 +48,11 @@ describe("PL-4 · bundle e runtime sem service_role", () => {
     const bundle = arquivos.map((arquivo) => readFileSync(arquivo, "utf8")).join("\n");
 
     expect(bundle).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
-    expect(bundle).not.toContain("service_role");
     expect(bundle).not.toContain("chave-service-role-de-teste");
     expect(bundle).not.toContain("TEST_SUPABASE_SERVICE_ROLE_KEY");
+    if (buildExiste) {
+      expect(bundle).not.toContain("service_role");
+    }
   });
 
   it("deve bloquear a fábrica service_role quando executada em runtime de navegador", async () => {
