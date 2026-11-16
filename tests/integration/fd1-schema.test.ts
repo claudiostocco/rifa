@@ -25,7 +25,7 @@ beforeAll(() => {
 
   if (!url || !chaveService) {
     throw new Error(
-      "Variáveis de teste do Supabase ausentes. Rode `supabase start` antes de `pnpm test:int` (ET-7)."
+      "Variáveis de teste do Supabase ausentes. Rode `supabase start` antes de `pnpm test:int` (ET-7).",
     );
   }
 });
@@ -165,7 +165,8 @@ describe("FD-1 · migração 0001 aplicada (schema do modelo §2.4)", () => {
       .single();
     expect(erroSorteio).toBeNull();
     expect(sorteio?.anulado_em).toBeNull();
-    expect(sorteio?.sorteado_em).toBeTruthy();  });
+    expect(sorteio?.sorteado_em).toBeTruthy();
+  });
 
   it("deve bloquear dados inválidos nos CHECKs e na UNIQUE (rifa_id, numero)", async () => {
     const base = {

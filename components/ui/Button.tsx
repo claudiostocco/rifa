@@ -7,9 +7,16 @@ type ButtonVariantProps = {
   tamanho?: "medio" | "grande";
 } & React.ButtonHTMLAttributes<HTMLButtonElement>;
 
+/**
+ * Classes do estilo primário (variante primario + tamanho medio) — reusadas
+ * em `Link`, que renderiza <a> e não pode ser um <button> (T1 "+ Nova Rifa").
+ * Mantidas em sincronia com `estilosVariante` e `estilosTamanho`.
+ */
+export const classesBotaoPrimario =
+  "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca bg-marca text-white hover:bg-marca-forte active:bg-marca-forte disabled:bg-marca/40";
+
 const estilosVariante: Record<NonNullable<ButtonVariantProps["variante"]>, string> = {
-  primario:
-    "bg-marca text-white hover:bg-marca-forte active:bg-marca-forte disabled:bg-marca/40",
+  primario: "bg-marca text-white hover:bg-marca-forte active:bg-marca-forte disabled:bg-marca/40",
   secundario:
     "border border-linha bg-white text-tinta hover:bg-papel-escuro disabled:text-tinta/40",
   perigo: "border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:text-red-300",

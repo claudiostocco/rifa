@@ -22,12 +22,7 @@ const estilosPorTipo = {
  * Toast base (ET-9): mensagem em português, `role=status` acessível e
  * desaparece sozinho após a duração (com timer testável via fake timers).
  */
-export function Toast({
-  mensagem,
-  tipo = "neutro",
-  duracaoMs = 4000,
-  aoEncerrar,
-}: ToastProps) {
+export function Toast({ mensagem, tipo = "neutro", duracaoMs = 4000, aoEncerrar }: ToastProps) {
   React.useEffect(() => {
     if (duracaoMs <= 0) return;
 
@@ -54,7 +49,7 @@ export function Toast({
           type="button"
           onClick={aoEncerrar}
           aria-label="Fechar aviso"
-          className="shrink-0 rounded px-1 text-white/80 hover:text-white"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         >
           <span aria-hidden="true">×</span>
         </button>

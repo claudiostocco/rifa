@@ -19,11 +19,7 @@ describe("componente Toast (ET-9)", () => {
 
     act(() => {
       render(
-        <Toast
-          mensagem="Esse número acabou de ser vendido"
-          tipo="erro"
-          aoEncerrar={aoEncerrar}
-        />
+        <Toast mensagem="Esse número acabou de ser vendido" tipo="erro" aoEncerrar={aoEncerrar} />,
       );
     });
 
@@ -42,7 +38,7 @@ describe("componente Toast (ET-9)", () => {
     const aoEncerrar = vi.fn();
 
     render(
-      <Toast mensagem="Venda registrada com sucesso" tipo="sucesso" aoEncerrar={aoEncerrar} />
+      <Toast mensagem="Venda registrada com sucesso" tipo="sucesso" aoEncerrar={aoEncerrar} />,
     );
 
     await userEvent.click(screen.getByRole("button", { name: "Fechar aviso" }));

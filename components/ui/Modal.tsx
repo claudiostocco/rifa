@@ -19,19 +19,59 @@ const TECLA_ESCAPE = "Escape";
  */
 export function Modal({ aberto, aoFechar, titulo, children }: ModalProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const fecharRef = React.useRef(aoFechar);
+
+  React.useEffect(() => {
+    fecharRef.current = aoFechar;
+  }, [aoFechar]);
 
   React.useEffect(() => {
     if (!aberto) return;
 
-    containerRef.current?.focus();
+    const elementoAnterior = document.activeElement;
+    const dialogo = containerRef.current;
+    const campoInicial = dialogo?.querySelector<HTMLElement>(
+      "input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
+    );
+    (campoInicial ?? dialogo)?.focus();
 
     const aoDigitar = (evento: KeyboardEvent) => {
-      if (evento.key === TECLA_ESCAPE) aoFechar();
+      if (evento.key === TECLA_ESCAPE) {
+        fecharRef.current();
+        return;
+      }
+
+      if (evento.key !== "Tab" || !dialogo) return;
+
+      const elementosFocaveis = Array.from(
+        dialogo.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((elemento) => !elemento.hasAttribute("hidden") && elemento.getAttribute("aria-hidden") !== "true");
+      const primeiro = elementosFocaveis[0];
+      const ultimo = elementosFocaveis[elementosFocaveis.length - 1];
+      const ativo = document.activeElement;
+
+      if (!primeiro || !ultimo) {
+        evento.preventDefault();
+        dialogo.focus();
+      } else if (evento.shiftKey && (ativo === primeiro || !dialogo.contains(ativo))) {
+        evento.preventDefault();
+        ultimo.focus();
+      } else if (!evento.shiftKey && (ativo === ultimo || !dialogo.contains(ativo))) {
+        evento.preventDefault();
+        primeiro.focus();
+      }
     };
 
     document.addEventListener("keydown", aoDigitar);
-    return () => document.removeEventListener("keydown", aoDigitar);
-  }, [aberto, aoFechar]);
+    return () => {
+      document.removeEventListener("keydown", aoDigitar);
+      if (elementoAnterior instanceof HTMLElement && elementoAnterior.isConnected) {
+        elementoAnterior.focus();
+      }
+    };
+  }, [aberto]);
 
   if (!aberto) return null;
 
@@ -60,7 +100,7 @@ export function Modal({ aberto, aoFechar, titulo, children }: ModalProps) {
             type="button"
             onClick={aoFechar}
             aria-label="Fechar"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-2xl text-tinta-suave hover:bg-papel-escuro"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-2xl text-tinta-suave hover:bg-papel-escuro focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca"
           >
             <span aria-hidden="true">×</span>
           </button>

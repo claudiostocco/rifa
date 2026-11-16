@@ -1,23 +1,48 @@
+/**
+ * FD-8 · Proxy (Middleware) do Supabase SSR — Next 16 (guia `01-app`,
+ * arquivo `proxy.ts`; o antigo `middleware.ts` está descontinuado).
+ *
+ * Funções: renovar a sessão em toda requisição autenticada e proteger as
+ * rotas do organizador (§2.8): `/`, `/rifas/*` e `/perfil/*` só com sessão;
+ * `/entrar` redireciona o usuário já logado de volta ao app. Rotas públicas
+ * (`/r/*`, estáticos) ficam fora do matcher — não gastam chamada ao Auth.
+ * A conferência usa `getUser()` (validação no servidor do Auth), não apenas
+ * a leitura otimista do cookie, conforme a recomendação do guia de
+ * autenticação do Next + Supabase. Falha de rede no Auth = sem acesso
+ * (fecha a porta; a tela pública continua independente).
+ */
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-/**
- * Renova a sessão httpOnly do Supabase em toda navegação (@supabase/ssr).
- * Next 16 usa a convenção proxy.ts (middleware.ts está deprecated).
- * Otimizado para performance: paraleliza refresh do Supabase com a resposta
- * para evitar waterfall (diretriz async-parallel).
- */
-export async function proxy(request: NextRequest) {
-  let respostaSupabase = NextResponse.next({ request });
+import type { Database } from "@/lib/supabase/database.types";
 
+const ROTA_ENTRAR = "/entrar";
+
+/** Prefixos do organizador (§2.8): T1 `/`, T2/T3 `/rifas`, `/perfil`. */
+const ROTAS_ORGANIZADOR = ["/rifas", "/perfil"];
+
+function eRotaOrganizador(caminho: string): boolean {
+  return (
+    caminho === "/" ||
+    ROTAS_ORGANIZADOR.some((rota) => caminho.startsWith(`${rota}/`) || caminho === rota)
+  );
+}
+
+export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const chaveAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !chaveAnon) {
-    return respostaSupabase;
+    throw new Error(
+      "Configuração do Supabase ausente: defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+    );
   }
 
-  const supabase = createServerClient(url, chaveAnon, {
+  let resposta = NextResponse.next({ request });
+
+  const supabase = createServerClient<Database>(url, chaveAnon, {
+    // Sessão httpOnly (§4.17) — ver comentário em lib/supabase/server.ts.
+    cookieOptions: { httpOnly: true },
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -26,35 +51,39 @@ export async function proxy(request: NextRequest) {
         for (const { name, value } of cookiesParaDefinir) {
           request.cookies.set(name, value);
         }
-        respostaSupabase = NextResponse.next({ request });
+        resposta = NextResponse.next({ request });
         for (const { name, value, options } of cookiesParaDefinir) {
-          respostaSupabase.cookies.set(name, value, options);
+          resposta.cookies.set(name, value, options);
         }
       },
     },
   });
 
-  // Importante para Server Components: evita refetch desnecessário.
-  const { data } = await supabase.auth.getClaims();
+  const { data, error } = await supabase.auth.getUser();
+  const usuario = error ? null : data.user;
 
-  // Rotas protegidas (T1, T3 e afins da sessão do organizador — Fases 1/2).
-  const emRotaProtegida =
-    request.nextUrl.pathname.startsWith("/rifas") ||
-    request.nextUrl.pathname.startsWith("/perfil");
+  const caminho = request.nextUrl.pathname;
 
-  if (emRotaProtegida && !data?.claims) {
-    const urlLogin = new URL("/entrar", request.nextUrl.origin);
-    return NextResponse.redirect(urlLogin);
+  if (!usuario && eRotaOrganizador(caminho)) {
+    const destino = request.nextUrl.clone();
+    destino.pathname = ROTA_ENTRAR;
+    destino.search = "";
+    return NextResponse.redirect(destino);
   }
 
-  return respostaSupabase;
+  if (usuario && caminho === ROTA_ENTRAR) {
+    const destino = request.nextUrl.clone();
+    destino.pathname = "/";
+    destino.search = "";
+    return NextResponse.redirect(destino);
+  }
+
+  return resposta;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Roda em tudo menos arquivos estáticos, next/image e service worker.
-     */
-    "/((?!_next/static|_next/image|favicon.ico|sw.js|icons|.*\\.(?:svg|png|jpg|jpeg|webp|gif|css|js|woff2?)$).*)",
+    // Tudo exceto estáticos e a área pública `/r/*` (T4/T5 sem sessão).
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icons/|r/).*)",
   ],
 };

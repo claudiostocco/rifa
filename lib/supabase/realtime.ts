@@ -5,6 +5,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { criarClienteNavegador } from "@/lib/supabase/client";
 
 type MudancaStatusNumero = "INSERT" | "UPDATE" | "DELETE";
+let sequenciaCanais = 0;
 
 /** Registro do evento POSTGRES_CHANGES da tabela numeros (RF-18). */
 export type MudancaStatusNumeros = {
@@ -23,12 +24,15 @@ export type MudancaStatusNumeros = {
  */
 export function assinarMudancaNumeros(
   rifaId: string,
-  aoMudar: (nova: MudancaStatusNumeros) => void
+  aoMudar: (nova: MudancaStatusNumeros) => void,
 ): RealtimeChannel {
   const cliente = criarClienteNavegador();
 
+  const nomeCanal = `numeros-da-rifa-${rifaId}-${sequenciaCanais + 1}`;
+  sequenciaCanais += 1;
+
   return cliente
-    .channel(`numeros-da-rifa-${rifaId}`)
+    .channel(nomeCanal)
     .on(
       "postgres_changes",
       {
@@ -40,14 +44,13 @@ export function assinarMudancaNumeros(
       (payload) => {
         // União INSERT | UPDATE | DELETE: `new` existe em insert/update,
         // `old` em update/delete — nargs via narrowing por `in`.
-        const registro =
-          "new" in payload && payload.new !== null ? payload.new : payload.old;
+        const registro = "new" in payload && payload.new !== null ? payload.new : payload.old;
 
         if (registro && typeof registro === "object") {
           const resposta = registro as MudancaStatusNumeros["resposta"];
           aoMudar({ type: payload.eventType as MudancaStatusNumero, resposta });
         }
-      }
+      },
     )
     .subscribe();
 }

@@ -62,5 +62,19 @@ jobs:
       - name: rodar testes de integração
         run: pnpm test:int
 
+      - name: Exportar variáveis do stack local para o build
+        # A rota `/` (FD-12) virou Server Component que consulta o Supabase via
+        # `cookies()`: sem as variáveis, o prerender de tentativa do build lança
+        # "Configuração do Supabase ausente" e o passo vermelha. O stack local
+        # já está no ar (passo anterior), então as credenciais saem de
+        # `supabase status` — mesmo padrão de `playwright.config.ts` (FD-12).
+        # As rotas são todas dinâmicas (ƒ): o build não abre conexão real, os
+        # valores são apenas para a criação do client não abortar.
+        run: |
+          supabase status -o json \
+            | jq -r '"NEXT_PUBLIC_SUPABASE_URL=\(.API_URL)
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=\(.ANON_KEY)
+          SUPABASE_SERVICE_ROLE_KEY=\(.SERVICE_ROLE_KEY)"' >> "$GITHUB_ENV"
+
       - name: Build de produção
         run: pnpm build

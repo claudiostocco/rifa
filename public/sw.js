@@ -7,9 +7,7 @@ const VERSAO_CACHE = "rifa-shell-v1";
 const RECURSOS_DO_SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png"];
 
 self.addEventListener("install", (evento) => {
-  evento.waitUntil(
-    caches.open(VERSAO_CACHE).then((cache) => cache.addAll(RECURSOS_DO_SHELL))
-  );
+  evento.waitUntil(caches.open(VERSAO_CACHE).then((cache) => cache.addAll(RECURSOS_DO_SHELL)));
   self.skipWaiting();
 });
 
@@ -19,11 +17,9 @@ self.addEventListener("activate", (evento) => {
       .keys()
       .then((chaves) =>
         Promise.all(
-          chaves
-            .filter((chave) => chave !== VERSAO_CACHE)
-            .map((chave) => caches.delete(chave))
-        )
-      )
+          chaves.filter((chave) => chave !== VERSAO_CACHE).map((chave) => caches.delete(chave)),
+        ),
+      ),
   );
   self.clients.claim();
 });
@@ -47,12 +43,10 @@ self.addEventListener("fetch", (evento) => {
           caches.open(VERSAO_CACHE).then((cache) => cache.put("/", copia));
           return resposta;
         })
-        .catch(() => caches.match("/"))
+        .catch(() => caches.match("/")),
     );
     return;
   }
 
-  evento.respondWith(
-    caches.match(request).then((emCache) => emCache ?? fetch(request))
-  );
+  evento.respondWith(caches.match(request).then((emCache) => emCache ?? fetch(request)));
 });

@@ -1,0 +1,611 @@
+/**
+ * FD-12 · Provisionamento de rifas para os testes E2E da T1.
+ *
+ * A T2 (FD-13) ainda não existe, então "criar rifa" no E2E da Fase 1 usa a
+ * via administrativa do stack local (`supabase status`) — mesmo padrão de
+ * `provisionar-organizador.ts`. A service_role vive apenas no processo do
+ * Playwright; nunca no bundle do app (SPEC §2.2).
+ *
+ * Cada rifa recebe um sufixo aleatório no título/slug: os workers rodam em
+ * paralelo (fullyParallel) e re-execuções acumulam linhas — os títulos
+ * únicos mantêm as asserções determinísticas sem depender de reset.
+ */
+import { randomBytes } from "node:crypto";
+
+import { createClient } from "@supabase/supabase-js";
+
+import { slugBaseDeTitulo } from "@/lib/slug";
+
+import { CREDENCIAIS_ORGANIZADOR, lerStatusLocal } from "./provisionar-organizador";
+import type { Database } from "@/lib/supabase/database.types";
+
+export type RifaDeTeste = { id: string; slug: string; titulo: string };
+
+type OpcoesRifaDeTeste = {
+  /** Título base; um sufixo único é acrescentado para execução paralela. */
+  titulo: string;
+  /** Perfil dono da rifa quando o cenário usa um organizador alternativo. */
+  perfilId?: string;
+  /** PB-1 · descrição da rifa (exibida no cabeçalho da T4 — §3.5). */
+  descricao?: string;
+  status?: "aberta" | "encerrada" | "sorteada";
+  /** Arquivada some da listagem T1 (RF-03) — cenário do Teste 2. */
+  arquivada?: boolean;
+  /**
+   * PB-1 · excluída é soft delete (RF-14/§2.4): também deixa de ser publicada
+   * para o anon (`rifas_publico_le_publicadas` — cenário do Teste 2 da T4).
+   */
+  excluida?: boolean;
+  /** Quantidade de números 1..N marcados `vendido` (progresso da barra). */
+  vendidos?: number;
+  quantidade?: number;
+  /**
+   * SR-6 · prêmio personalizado (rótulo/valor/descrição) — a tela pública T5
+   * exibe a frase com rótulo ("Mais de R$ 500 — …"), então o E2E precisa de
+   * rifas fora do padrão "estimado 850" do provisionamento.
+   */
+  premioRotulo?: "estimado" | "mais_de" | "ate";
+  premioValor?: number;
+  premioDescricao?: string;
+  /** Data prevista (AAAA-MM-DD) exibida no cabeçalho da T3 (cenário VT-1). */
+  dataPrevista?: string;
+  /**
+   * Registra 1 venda real (comprador + linha em `vendas`): com QUALQUER venda
+   * a quantidade fica travada na edição (RN-09 — cenário do FD-13 Teste 2).
+   */
+  comVenda?: boolean;
+  /**
+   * Números marcados `vendido` COM venda vigente e comprador "Maria Silva"
+   * (cada número com comprador próprio para o prefill do modal T3a — VT-4).
+   * Complementa `vendidos` (contíguos 1..N sem venda gravada).
+   */
+  numerosVendidos?: number[];
+  /**
+   * VT-8 · mapa DETERMINÍSTICO de comprador por número (a alternativa
+   * `numerosVendidos` alterna os compradores pela ordem do banco, que não é
+   * garantida — aqui quem comprou o quê é explícito: essencial para as buscas
+   * por nome/telefone da RF-07). Compradores são deduplicados por telefone,
+   * como a `registrarVenda` (VT-5) faria.
+   */
+  vendidosComCompradores?: Array<{ numero: number; nome: string; telefone: string }>;
+  /**
+   * SR-2/SR-3 · números 1..N marcados `vendido` COM venda vigente de
+   * compradores alternados Maria/João (deduplicados por telefone): a RPC
+   * `sortear_rifa` conta apenas vendas VIGENTES removidas_em IS NULL —
+   * marcar o status sem gravar a venda dá total_vendidos 0 (RIFA_SEM_VENDIDOS).
+   */
+  vendidosComVendas?: number;
+};
+
+function clienteAdmin() {
+  const { url, serviceRole } = lerStatusLocal();
+  return createClient<Database>(url, serviceRole, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+/**
+ * Rifas criadas nesta execução do worker: cada processo Playwright registra
+ * os ids que criou e o `afterAll` da spec os remove — a base local volta ao
+ * estado íntegro exigido pelo ET-7/bootstrap (o `pnpm test:int` conta com
+ * ela limpa; o DELETE em cascata leva os `numeros` junto, migração 001).
+ */
+const rifasCriadas: string[] = [];
+
+/** Remove do stack local todas as rifas de teste criadas por este worker. */
+export async function limparRifasDeTeste(): Promise<void> {
+  if (rifasCriadas.length === 0) return;
+
+  const admin = clienteAdmin();
+  await admin.from("rifas").delete().in("id", rifasCriadas);
+  rifasCriadas.length = 0;
+}
+
+/**
+ * Registra para limpeza uma rifa criada PELA UI (fluxo real da `criarRifa`,
+ * FD-13) e não por este módulo — o `afterAll` da spec leva a base local de
+ * volta ao estado íntegro exigido pelo ET-7 (o DELETE em cascata leva numeros
+ * e o histórico de vendas/compradores junto, migração 001).
+ */
+export function registrarRifaParaLimpeza(id: string): void {
+  rifasCriadas.push(id);
+}
+
+/**
+ * Cria uma rifa completa (linha + numeração 1..N, RF-02) para o organizador
+ * de teste, no formato que a `criarRifa` (FD-10) gravaria.
+ */
+export async function criarRifaDeTeste({
+  titulo,
+  perfilId,
+  descricao,
+  status = "aberta",
+  arquivada = false,
+  excluida = false,
+  vendidos = 0,
+  quantidade = 100,
+  comVenda = false,
+  numerosVendidos = [],
+  vendidosComCompradores = [],
+  vendidosComVendas = 0,
+  premioRotulo = "estimado",
+  premioValor = 850,
+  premioDescricao = "Forno elétrico",
+  dataPrevista,
+}: OpcoesRifaDeTeste): Promise<RifaDeTeste> {
+  const admin = clienteAdmin();
+
+  const { data: listagem } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+  const usuario = perfilId
+    ? listagem?.users.find((candidato) => candidato.id === perfilId)
+    : listagem?.users.find((candidato) => candidato.email === CREDENCIAIS_ORGANIZADOR.email);
+  if (!usuario) {
+    throw new Error(
+      `Organizador ${CREDENCIAIS_ORGANIZADOR.email} não encontrado — chame provisionarOrganizador() no beforeAll.`,
+    );
+  }
+
+  const sufixo = randomBytes(2).toString("hex");
+  const tituloUnico = `${titulo} ${sufixo}`;
+  // Mesma regra da `criarRifa` (FD-10): base sem acentos + sufixo — títulos
+  // com acento produzem slug ASCII navegável (descoberto na SR-7: "Revelação"
+  // gerava slug acentado e a T4/T5 anon não achava a rifa pela URL).
+  const slug = `${slugBaseDeTitulo(titulo)}-${sufixo}`;
+
+  const { data: rifa, error: erroRifa } = await admin
+    .from("rifas")
+    .insert({
+      perfil_id: usuario.id,
+      titulo: tituloUnico,
+      ...(descricao ? { descricao } : {}),
+      premio_descricao: premioDescricao,
+      premio_rotulo: premioRotulo,
+      premio_valor: premioValor,
+      numero_valor: 10,
+      quantidade,
+      qtd_minima: 30,
+      slug,
+      status,
+      arquivada,
+      excluida,
+      ...(dataPrevista ? { data_prevista: dataPrevista } : {}),
+    })
+    .select("id, slug, titulo")
+    .single();
+  if (erroRifa || !rifa) {
+    throw new Error(`Falha ao criar rifa de teste: ${JSON.stringify(erroRifa)}`);
+  }
+
+  const numeros = Array.from({ length: quantidade }, (_, indice) => ({
+    rifa_id: rifa.id,
+    numero: indice + 1,
+  }));
+  const { error: erroNumeros } = await admin.from("numeros").insert(numeros);
+  if (erroNumeros) {
+    throw new Error(`Falha ao criar números de teste: ${JSON.stringify(erroNumeros)}`);
+  }
+
+  if (vendidos > 0) {
+    const { error: erroVendas } = await admin
+      .from("numeros")
+      .update({ status: "vendido" })
+      .eq("rifa_id", rifa.id)
+      .lte("numero", vendidos);
+    if (erroVendas) {
+      throw new Error(`Falha ao marcar vendidos de teste: ${JSON.stringify(erroVendas)}`);
+    }
+  }
+
+  // VT-4: números vendidos com venda vigente e comprador próprio (prefill).
+  if (numerosVendidos.length > 0) {
+    const { data: alvos, error: erroAlvos } = await admin
+      .from("numeros")
+      .select("id, numero")
+      .eq("rifa_id", rifa.id)
+      .in("numero", numerosVendidos);
+    if (erroAlvos || !alvos || alvos.length !== numerosVendidos.length) {
+      throw new Error(`Falha ao buscar números vendidos de teste: ${JSON.stringify(erroAlvos)}`);
+    }
+
+    const { data: compradores, error: erroCompradores } = await admin
+      .from("compradores")
+      .insert([
+        { rifa_id: rifa.id, nome: "Maria Silva", telefone: "+5511988887777" },
+        { rifa_id: rifa.id, nome: "João Souza", telefone: "+5511999998888" },
+      ])
+      .select("id");
+    if (erroCompradores || !compradores) {
+      throw new Error(`Falha ao criar compradores de teste: ${JSON.stringify(erroCompradores)}`);
+    }
+
+    const { error: erroMarcado } = await admin
+      .from("numeros")
+      .update({ status: "vendido" })
+      .in(
+        "id",
+        alvos.map((alvo) => alvo.id),
+      );
+    if (erroMarcado) {
+      throw new Error(`Falha ao marcar números vendidos de teste: ${JSON.stringify(erroMarcado)}`);
+    }
+
+    const vendas = alvos.map((alvo, indice) => ({
+      numero_id: alvo.id,
+      comprador_id: compradores[indice % compradores.length].id,
+      origem: "organizador" as const,
+    }));
+    const { error: erroVendas } = await admin.from("vendas").insert(vendas);
+    if (erroVendas) {
+      throw new Error(`Falha ao criar vendas de teste: ${JSON.stringify(erroVendas)}`);
+    }
+  }
+
+  // VT-8: números vendidos com comprador EXPLÍCITO por número (busca RF-07).
+  if (vendidosComCompradores.length > 0) {
+    const { data: alvos, error: erroAlvos } = await admin
+      .from("numeros")
+      .select("id, numero")
+      .eq("rifa_id", rifa.id)
+      .in(
+        "numero",
+        vendidosComCompradores.map((alvo) => alvo.numero),
+      );
+    if (erroAlvos || !alvos || alvos.length !== vendidosComCompradores.length) {
+      throw new Error(`Falha ao buscar números vendidos de teste: ${JSON.stringify(erroAlvos)}`);
+    }
+
+    // Comprador deduplicado por telefone (mesma pessoa da rifa — padrão VT-5).
+    const compradoresPorTelefone = new Map<string, string>();
+    for (const alvo of vendidosComCompradores) {
+      if (!compradoresPorTelefone.has(alvo.telefone)) {
+        const { data: criado, error: erroComprador } = await admin
+          .from("compradores")
+          .insert({ rifa_id: rifa.id, nome: alvo.nome, telefone: alvo.telefone })
+          .select("id")
+          .single();
+        if (erroComprador || !criado) {
+          throw new Error(`Falha ao criar comprador de teste: ${JSON.stringify(erroComprador)}`);
+        }
+        compradoresPorTelefone.set(alvo.telefone, criado.id);
+      }
+    }
+
+    const { error: erroMarcado } = await admin
+      .from("numeros")
+      .update({ status: "vendido" })
+      .in(
+        "id",
+        alvos.map((alvo) => alvo.id),
+      );
+    if (erroMarcado) {
+      throw new Error(`Falha ao marcar números vendidos de teste: ${JSON.stringify(erroMarcado)}`);
+    }
+
+    const vendas = alvos.map((alvo) => {
+      const pedido = vendidosComCompradores.find((item) => item.numero === alvo.numero);
+      if (!pedido) {
+        throw new Error(`Número ${alvo.numero} sem comprador definido no provisionamento.`);
+      }
+      const compradorId = compradoresPorTelefone.get(pedido.telefone);
+      if (!compradorId) {
+        throw new Error(`Comprador do número ${alvo.numero} não provisionado.`);
+      }
+      return { numero_id: alvo.id, comprador_id: compradorId, origem: "organizador" as const };
+    });
+    const { error: erroVendas } = await admin.from("vendas").insert(vendas);
+    if (erroVendas) {
+      throw new Error(`Falha ao criar vendas de teste: ${JSON.stringify(erroVendas)}`);
+    }
+  }
+
+  // SR-2/SR-3: números 1..N vendidos COM venda vigente (a RPC conta apenas
+  // vendas vigentes) e compradores alternados Maria/João deduplicados por
+  // telefone — o conjunto de participantes do sorteio de teste.
+  if (vendidosComVendas > 0) {
+    const participantes = [
+      { nome: "Maria Silva", telefone: "+5511988887777" },
+      { nome: "João Souza", telefone: "+5511999998888" },
+    ];
+
+    const { data: alvos, error: erroAlvos } = await admin
+      .from("numeros")
+      .select("id, numero")
+      .eq("rifa_id", rifa.id)
+      .lte("numero", vendidosComVendas);
+    if (erroAlvos || !alvos || alvos.length !== vendidosComVendas) {
+      throw new Error(`Falha ao buscar números vendidos de teste: ${JSON.stringify(erroAlvos)}`);
+    }
+
+    const compradoresPorTelefone = new Map<string, string>();
+    for (const participante of participantes) {
+      const { data: criado, error: erroComprador } = await admin
+        .from("compradores")
+        .insert({ rifa_id: rifa.id, ...participante })
+        .select("id")
+        .single();
+      if (erroComprador || !criado) {
+        throw new Error(`Falha ao criar comprador de teste: ${JSON.stringify(erroComprador)}`);
+      }
+      compradoresPorTelefone.set(participante.telefone, criado.id);
+    }
+
+    const { error: erroMarcado } = await admin
+      .from("numeros")
+      .update({ status: "vendido" })
+      .in(
+        "id",
+        alvos.map((alvo) => alvo.id),
+      );
+    if (erroMarcado) {
+      throw new Error(`Falha ao marcar números vendidos de teste: ${JSON.stringify(erroMarcado)}`);
+    }
+
+    const vendas = alvos.map((alvo) => {
+      const participante = participantes[(alvo.numero - 1) % participantes.length];
+      const compradorId = compradoresPorTelefone.get(participante.telefone);
+      if (!compradorId) {
+        throw new Error(`Comprador do número ${alvo.numero} não provisionado.`);
+      }
+      return { numero_id: alvo.id, comprador_id: compradorId, origem: "organizador" as const };
+    });
+    const { error: erroVendas } = await admin.from("vendas").insert(vendas);
+    if (erroVendas) {
+      throw new Error(`Falha ao criar vendas de teste: ${JSON.stringify(erroVendas)}`);
+    }
+  }
+
+  if (comVenda) {
+    const { data: numero, error: erroNumero } = await admin
+      .from("numeros")
+      .select("id")
+      .eq("rifa_id", rifa.id)
+      .eq("numero", 1)
+      .single();
+    if (erroNumero || !numero) {
+      throw new Error(`Falha ao buscar número 1 de teste: ${JSON.stringify(erroNumero)}`);
+    }
+
+    const { data: comprador, error: erroComprador } = await admin
+      .from("compradores")
+      .insert({ rifa_id: rifa.id, nome: "Maria Silva", telefone: "+5511988887777" })
+      .select("id")
+      .single();
+    if (erroComprador || !comprador) {
+      throw new Error(`Falha ao criar comprador de teste: ${JSON.stringify(erroComprador)}`);
+    }
+
+    const { error: erroVenda } = await admin.from("vendas").insert({
+      numero_id: numero.id,
+      comprador_id: comprador.id,
+      origem: "organizador",
+    });
+    if (erroVenda) {
+      throw new Error(`Falha ao criar venda de teste: ${JSON.stringify(erroVenda)}`);
+    }
+  }
+
+  rifasCriadas.push(rifa.id);
+  return rifa;
+}
+
+/**
+ * VT-6 · Venda direta de um número DEPOIS da rifa provisionada — simula o
+ * "outro consultor" que vendeu o número 1s antes do organizador salvar
+ * (corrida do RN-03). Grava comprador + venda vigente + virada do número,
+ * no mesmo formato que a `registrarVenda` (VT-5) grava. A rifa alvo já deve
+ * ter sido criada por `criarRifaDeTeste` (a limpeza do `afterAll` a leva,
+ * com este histórico junto, em cascata).
+ */
+export async function venderNumeroDeTeste(
+  rifaId: string,
+  numero: number,
+  comprador: { nome: string; telefone: string; origem?: "organizador" | "publico" },
+): Promise<void> {
+  const admin = clienteAdmin();
+
+  const { data: alvo, error: erroAlvo } = await admin
+    .from("numeros")
+    .select("id")
+    .eq("rifa_id", rifaId)
+    .eq("numero", numero)
+    .single();
+  if (erroAlvo || !alvo) {
+    throw new Error(
+      `Falha ao buscar número ${numero} para a venda de teste: ${JSON.stringify(erroAlvo)}`,
+    );
+  }
+
+  const { data: compradorCriado, error: erroComprador } = await admin
+    .from("compradores")
+    .insert({ rifa_id: rifaId, nome: comprador.nome, telefone: comprador.telefone })
+    .select("id")
+    .single();
+  if (erroComprador || !compradorCriado) {
+    throw new Error(`Falha ao criar comprador de teste: ${JSON.stringify(erroComprador)}`);
+  }
+
+  const { error: erroNumero } = await admin
+    .from("numeros")
+    .update({ status: "vendido" })
+    .eq("id", alvo.id)
+    .eq("status", "disponivel");
+  if (erroNumero) {
+    throw new Error(`Falha ao marcar o número vendido de teste: ${JSON.stringify(erroNumero)}`);
+  }
+
+  const { error: erroVenda } = await admin.from("vendas").insert({
+    numero_id: alvo.id,
+    comprador_id: compradorCriado.id,
+    origem: comprador.origem ?? "organizador",
+  });
+  if (erroVenda) {
+    throw new Error(`Falha ao criar a venda de teste: ${JSON.stringify(erroVenda)}`);
+  }
+}
+
+/**
+ * PB-2 · leitura da venda VIGENTE de um número (RN-03: removida_em IS NULL) —
+ * o E2E da T4 cruza o que a tela registrou com o que o banco gravou,
+ * conferindo a `origem='publico'` que a `registrarVendaPublica` fica.
+ */
+export async function lerVendaVigenteDeTeste(
+  rifaId: string,
+  numero: number,
+): Promise<{ origem: "organizador" | "publico"; nome: string } | null> {
+  const admin = clienteAdmin();
+
+  const { data: alvo, error: erroAlvo } = await admin
+    .from("numeros")
+    .select("id")
+    .eq("rifa_id", rifaId)
+    .eq("numero", numero)
+    .single();
+  if (erroAlvo || !alvo) {
+    throw new Error(
+      `Falha ao buscar número ${numero} para a leitura da venda: ${JSON.stringify(erroAlvo)}`,
+    );
+  }
+
+  const { data } = await admin
+    .from("vendas")
+    .select("origem, compradores(nome)")
+    .eq("numero_id", alvo.id)
+    .is("removida_em", null)
+    .maybeSingle();
+  if (!data) return null;
+
+  const nome = Array.isArray(data.compradores) ? data.compradores[0]?.nome : data.compradores?.nome;
+  if (typeof nome !== "string") return null;
+  // Origem chega como string do CHECK (regra FD-4): afunilar com guarda.
+  if (data.origem !== "organizador" && data.origem !== "publico") return null;
+  return { origem: data.origem, nome };
+}
+
+/**
+ * SR-5 · leitura do sorteio VIGENTE (RN-08: `anulado_em IS NULL`) da rifa —
+ * o E2E da roleta cruza o que a animação exibiu com o que o servidor gravou
+ * (§4.9: "desacelera no número já retornado pelo servidor").
+ */
+export async function lerSorteioVigente(
+  rifaId: string,
+): Promise<{ numero: number; nome: string } | null> {
+  const admin = clienteAdmin();
+  const { data } = await admin
+    .from("sorteios")
+    .select("numero:numero_id (numero), compradores(nome)")
+    .eq("rifa_id", rifaId)
+    .is("anulado_em", null)
+    .maybeSingle();
+  if (!data) return null;
+
+  // Padrão da casa (actions/sorteio.ts): defensiva contra forma inesperada
+  // do embed 1:1 do PostgREST.
+  const numero = Array.isArray(data.numero) ? data.numero[0]?.numero : data.numero?.numero;
+  const nome = Array.isArray(data.compradores) ? data.compradores[0]?.nome : data.compradores?.nome;
+  if (typeof numero !== "number" || typeof nome !== "string") return null;
+  return { numero, nome };
+}
+
+/**
+ * SR-5 · contagem de sorteios VIGENTES da rifa — prova que a confirmação da
+ * roleta gravou UM resultado único no banco (RNF-06).
+ */
+export async function contarSorteiosVigentes(rifaId: string): Promise<number> {
+  const admin = clienteAdmin();
+  const { count } = await admin
+    .from("sorteios")
+    .select("id", { count: "exact", head: true })
+    .eq("rifa_id", rifaId)
+    .is("anulado_em", null);
+  return count ?? 0;
+}
+
+/**
+ * SR-6 · sorteio DETERMINÍSTICO de um número da rifa provisionada: grava a
+ * linha em `sorteios` no mesmo formato que a RPC `sortear_rifa` grava (FD-3) —
+ * vencedor escolhido (ex.: o 047 de Maria) e `sorteado_em` fixo, pois o sorteio
+ * real é aleatório (RNF-07) e o E2E da T5 cruza a tela com o banco. A rifa
+ * precisa ter o número vendido COM venda vigente (`vendidosComCompradores`).
+ */
+export async function sortearNumeroDeTeste(
+  rifaId: string,
+  numero: number,
+  sorteadoEm = "2026-11-14T20:30:00+00:00",
+): Promise<void> {
+  const admin = clienteAdmin();
+
+  const { data: alvo, error: erroAlvo } = await admin
+    .from("numeros")
+    .select("id")
+    .eq("rifa_id", rifaId)
+    .eq("numero", numero)
+    .single();
+  if (erroAlvo || !alvo) {
+    throw new Error(
+      `Falha ao buscar número ${numero} do sorteio de teste: ${JSON.stringify(erroAlvo)}`,
+    );
+  }
+
+  const { data: venda, error: erroVenda } = await admin
+    .from("vendas")
+    .select("comprador_id")
+    .eq("numero_id", alvo.id)
+    .is("removida_em", null)
+    .single();
+  if (erroVenda || !venda) {
+    throw new Error(
+      `O número ${numero} não tem venda vigente para o sorteio de teste: ${JSON.stringify(erroVenda)}`,
+    );
+  }
+
+  const { count } = await admin
+    .from("vendas")
+    .select("id", { count: "exact", head: true })
+    .eq("numeros.rifa_id", rifaId)
+    .is("removida_em", null);
+
+  const { error: erroSorteio } = await admin.from("sorteios").insert({
+    rifa_id: rifaId,
+    numero_id: alvo.id,
+    comprador_id: venda.comprador_id,
+    total_vendidos: count ?? 0,
+    sorteado_em: sorteadoEm,
+  });
+  if (erroSorteio) {
+    throw new Error(`Falha ao gravar o sorteio de teste: ${JSON.stringify(erroSorteio)}`);
+  }
+}
+
+/** Credenciais fixas do organizador SEM rifas (cenário do empty state). */
+export const CREDENCIAIS_SEM_RIFAS = {
+  email: "organizador-vazio@rifa.test",
+  senha: "organizador-vazio-2026",
+} as const;
+
+/**
+ * Segundo organizador, nunca usado pelas seeds de rifa: garante a listagem
+ * vazia mesmo com re-execuções que acumulam rifas do organizador principal.
+ * Idempotência com a mesma verificação de existência de `provisionarOrganizador`.
+ */
+export async function provisionarOrganizadorSemRifas(): Promise<void> {
+  const admin = clienteAdmin();
+
+  const existe = async (): Promise<boolean> => {
+    const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+    return data?.users.some((usuario) => usuario.email === CREDENCIAIS_SEM_RIFAS.email) ?? false;
+  };
+
+  if (await existe()) return;
+
+  await admin.auth.admin.createUser({
+    email: CREDENCIAIS_SEM_RIFAS.email,
+    password: CREDENCIAIS_SEM_RIFAS.senha,
+    email_confirm: true,
+  });
+
+  if (!(await existe())) {
+    throw new Error(
+      `Organizador ${CREDENCIAIS_SEM_RIFAS.email} não ficou disponível no stack local.`,
+    );
+  }
+}

@@ -13,12 +13,12 @@ O aplicativo é acessado pelo **navegador** (computador ou celular), funciona **
 
 ### 1.1 Objetivos
 
-| Objetivo | Descrição |
-|---|---|
+| Objetivo                      | Descrição                                                                               |
+| ----------------------------- | --------------------------------------------------------------------------------------- |
 | Simplificar a gestão de rifas | Substituir controles manuais (caderno, planilha, listas de WhatsApp) por um único lugar |
-| Dar transparência | Mostrar publicamente quais números estão vendidos/livres |
-| Sorteio justo e comprovável | Sorteio apenas entre números vendidos, com registro do resultado |
-| Acesso universal | Funcionar em celular e computador, sem instalar nada |
+| Dar transparência             | Mostrar publicamente quais números estão vendidos/livres                                |
+| Sorteio justo e comprovável   | Sorteio apenas entre números vendidos, com registro do resultado                        |
+| Acesso universal              | Funcionar em celular e computador, sem instalar nada                                    |
 
 ### 1.2 Público-alvo
 
@@ -49,11 +49,13 @@ Cada item pode entrar futuramente como evolução (ver seção 7).
 **RN-03 — Venda:** o **organizador** marca números como vendidos no painel (T3) e o **consultor** pode registrar um comprador pela tela pública (T4), apenas em números **disponíveis** e somente preenchendo **nome** e **telefone**. Somente o organizador pode **editar/transferir** um registro existente ou **remover** uma venda. Um número vende-se uma única vez.
 
 **RN-04 — Estados do número:**
+
 - **Disponível** — não vendido
 - **Vendido** — com comprador registrado
 - **Sorteado** — resultado do sorteio (o número vencedor)
 
 **RN-05 — Ciclo da rifa:**
+
 - **Aberta** → vendas em andamento (marcação liberada)
 - **Encerrada** → vendas suspensas, sorteio liberado
 - **Sorteada** → resultado publicado, imutável (a menos que o organizador "desfaça" o sorteio — ver RN-08)
@@ -110,6 +112,7 @@ A navegação tem **uma lista de rifas** como ponto de partida e **uma tela por 
 **Objetivo:** ver todas as rifas e acessar rapidamente a que está ativa.
 
 **Elementos:**
+
 - Cabeçalho com nome do app ("Rifa App") e botão **+ Nova Rifa**
 - **Vazio** (primeiro uso): ilustração/texto "Você ainda não tem rifas. Crie a primeira!" + botão criar
 - **Card por rifa** com:
@@ -130,22 +133,24 @@ A navegação tem **uma lista de rifas** como ponto de partida e **uma tela por 
 **Objetivo:** formulário único, enxuto, com validações claras.
 
 **Campos:**
-| Campo | Obrig. | Formato / notável |
-|---|---|---|
-| Título | ✔ | texto livre, até 60 caracteres, contador visível |
-| Descrição | ✖ | texto livre, até 500 caracteres |
-| Prêmio (descrição) | ✔ | texto (ex.: "Forno elétrico", "Cesta natalina") |
-| **Label do valor do prêmio** | ✔ | seletor: Valor estimado · Mais de · Até |
-| **Valor do prêmio (R$)** | ✔ | número decimal, formato moeda |
-| **Valor de cada número (R$)** | ✔ | número decimal, maior que zero |
-| **Quantidade de números** | ✔ | seletor: 25 · 50 · 100 · 200 · 500 · 1.000 · 5.000 |
-| **Quantidade mínima** | ✔ | Número inteiro de 0 até a quantidade de números escolhida (usado como aviso ao encerrar vendas) |
-| Foto do prêmio | ✖ | upload ou câmera no celular; preview imediato; máx. 5 MB |
-| Data prevista do sorteio | ✖ | data opcional, apenas informativa (exibida no painel e na tela pública) |
+
+| Campo                         | Obrig. | Formato / notável                                                                               |
+| ----------------------------- | ------ | ----------------------------------------------------------------------------------------------- |
+| Título                        | ✔      | texto livre, até 60 caracteres, contador visível                                                |
+| Descrição                     | ✖      | texto livre, até 500 caracteres                                                                 |
+| Prêmio (descrição)            | ✔      | texto (ex.: "Forno elétrico", "Cesta natalina")                                                 |
+| **Label do valor do prêmio**  | ✔      | seletor: Valor estimado · Mais de · Até                                                         |
+| **Valor do prêmio (R$)**      | ✔      | número decimal, formato moeda                                                                   |
+| **Valor de cada número (R$)** | ✔      | número decimal, maior que zero                                                                  |
+| **Quantidade de números**     | ✔      | seletor: 25 · 50 · 100 · 200 · 500 · 1.000 · 5.000                                              |
+| **Quantidade mínima**         | ✔      | Número inteiro de 0 até a quantidade de números escolhida (usado como aviso ao encerrar vendas) |
+| Foto do prêmio                | ✖      | upload ou câmera no celular; preview imediato; máx. 5 MB                                        |
+| Data prevista do sorteio      | ✖      | data opcional, apenas informativa (exibida no painel e na tela pública)                         |
 
 **Validação em tempo real:** evidencia preenchimento faltante e valores negativos. Botão **Criar Rifa** fica inativo até o formulário mínimo estar válido.
 
 **Regras:**
+
 - Em modo **edição**, campo de "Quantidade de números" fica desabilitado se já houver número vendido (RN-09).
 - "Criar" gera a lista de números vazia (todos "Disponíveis") e redireciona para **T3**.
 - Ao criar, o app registra o **link público** da rifa e o exibe com botão **Copiar link** (para divulgar no WhatsApp).
@@ -207,6 +212,7 @@ A navegação tem **uma lista de rifas** como ponto de partida e **uma tela por 
 **Objetivo:** página que o organizador compartilha via link; o consultor/comprador visualiza a rifa e a lista de números e pode **registrar um comprador em número disponível**; editar, transferir ou remover uma venda já registrada é exclusivo do organizador (painel T3).
 
 **Elementos:**
+
 - Banner com imagem do prêmio, título, descrição
 - Prêmio com rótulo e valor (ex.: "Mais de R$ 500 — Forno elétrico") · preço do número · data prevista do sorteio (se não informada, o campo não é exibido)
 - Barra de progresso de vendas (ex.: "37 de 100 números vendidos") com marca visual do mínimo definido
@@ -223,6 +229,7 @@ A navegação tem **uma lista de rifas** como ponto de partida e **uma tela por 
 **Objetivo:** publicar e comemorar o resultado — também acessível pelo link público.
 
 **Elementos:**
+
 - Visual de destaque: 🎉 "Número sorteado: **047**"
 - Card grande com: número · **nome do comprador** · **telefone com apenas os 2 últimos dígitos visíveis** (ex.: "(11) 9••••-••44" — a revelação completa fica restrita ao painel T3, RN-06) · prêmio com rótulo (ex.: "Mais de R$ 500 — Forno elétrico")
 - Data e hora do sorteio
@@ -234,6 +241,7 @@ A navegação tem **uma lista de rifas** como ponto de partida e **uma tela por 
 ## 4. Fluxos de Uso (end-to-end)
 
 ### F1 · Criar uma rifa (happy path)
+
 1. Organizador abre o app → **T1**.
 2. Toca **+ Nova Rifa** → **T2**.
 3. Preenche: Título "Rifa do Forno", Prêmio "Forno elétrico 220V", Valor do prêmio "850,00", Valor do número "10,00", Quantidade "100", foto (tirada na hora pelo celular).
@@ -241,6 +249,7 @@ A navegação tem **uma lista de rifas** como ponto de partida e **uma tela por 
 5. O app mostra o **link público** com botão copiar; o organizador cola no grupo de WhatsApp.
 
 ### F2 · Registrar venda (loop principal)
+
 1. Comprador confirma interesse pelo WhatsApp.
 2. O organizador abre **T3** (ou o consultor abre **T4** pelo link público) → toca o número **037** na grade.
 3. Modal **T3a** abre com título "Número 037".
@@ -253,26 +262,31 @@ _feliz alternativa:_ comprador desiste → organizador abre o número 037 → **
 _alternativa:_ recarregar a página/fechar o app não perde nada — dados são gravados no servidor a cada salvamento (RN-07).
 
 ### F3 · Acompanhar e buscar
+
 1. Alguém pergunta "o 051 vendeu?".
 2. Organizador (ou o próprio consultor via link público) busca "051" ou filtra por "Disponíveis".
 3. A pastilha 051 aparece em destaque com estado atual.
 
 ### F4 · Encerrar e sortear
+
 1. Fim do prazo de vendas → organizador em **T3** toca **Encerrar vendas** → confirmação; **se as vendas estiverem abaixo do mínimo (ex.: 12/30)**, o aviso destaca isso e o organizador decide **encerrar mesmo assim** ou **continuar vendendo** → status 🔒 **Encerrada**.
 2. Organizador toca **Realizar Sorteio** → confirmação mostra: "O sorteio será feito entre 82 números vendidos." → confirma. (Sem novo aviso sobre o mínimo.)
 3. Sistema sorteia aleatoriamente entre os 82 números vendidos, exibe por alguns segundos a **animação de uma roleta girando com os primeiros nomes dos participantes** (dar emoção) → grava resultado (número, comprador, data/hora) → status 🎉 **Sorteada**.
 4. App abre/cai em **T5** com o vencedor em destaque; link da rifa passa a exibir o resultado publicamente.
 
 ### F5 · Consultar rifa pelo link (comprador)
+
 1. Comprador recebe link no WhatsApp → abre **T4** no navegador do celular.
 2. Vê prêmio, preço, barra de progresso e a lista de números.
 3. Diz ao organizador qual número quer (ex.: "quero o 57") → organizador ou consultor registra a venda (F2).
 
 ### F6 · Ver resultado
+
 1. Consultor abre o link da rifa → **T5** (ou via **T4**, com botão "Ver resultado").
 2. Vê número, nome do ganhador, data do sorteio; pode copiar o resultado para divulgar.
 
 ### F7 · Erro/contorno (situações de exceção)
+
 - **Sorteio sem vendas:** se o organizador tentar sortear com **0 vendidos**, o app bloqueia e informa "A rifa não tem números vendidos; o sorteio não pode ser realizado." A rifa permanece encerrada (ele pode reabrir ou arquivar).
 - **Sorteio abaixo do mínimo:** o aviso acontece **uma única vez**, no momento de encerrar as vendas (F4). No sorteio, nenhum aviso relacionado ao mínimo — apenas prossegue.
 - **Sorteio errado:** organizador desfez o sorteio (RN-08) → T5 mostra "anulado" e a rifa volta a "Encerrada" para re-sorteio.
@@ -283,41 +297,41 @@ _alternativa:_ recarregar a página/fechar o app não perde nada — dados são 
 
 ## 5. Requisitos Funcionais (resumo numerado)
 
-| ID | Requisito |
-|---|---|
-| RF-01 | Criar rifa com: título, descrição (opc), nome do prêmio, **rótulo do valor do prêmio** (Valor estimado · Mais de · Até) e valor, valor do número, quantidade (25–5.000), quantidade mínima, foto (opc), data prevista (opc) |
-| RF-02 | Gerar automaticamente a lista de números de **001 até a quantidade**, com zero à esquerda e no mínimo 3 dígitos |
-| RF-03 | Listar rifas na home com status, progresso de vendas e foto |
-| RF-04 | Exibir painel da rifa (T3) com dados, resumo financeiro **visível apenas aqui** (vendidos/total, disponíveis, arrecadado, potencial) e grade de números |
-| RF-05 | Ao tocar um número, abrir modal para informar nome e telefone do comprador; salvar marca como vendido |
-| RF-05a | Pelo **link público (T4)**, permitir registrar comprador apenas em números disponíveis; edição/transferência/remoção exclusivas do organizador (T3) |
-| RF-06 | Editar e remover venda (transferência/desistência), com confirmação na remoção |
-| RF-07 | Buscar por número e por comprador (nome/telefone); filtrar por estado |
-| RF-08 | Encerrar vendas (bloqueia novas marcações) e reabrir; **ao encerrar abaixo da quantidade mínima, exibir aviso e deixar o organizador decidir** |
-| RF-09 | Realizar sorteio somente entre números vendidos (bloqueia com 0 vendidos), com confirmação prévia |
-| RF-09a | **Animação de roleta** com os primeiros nomes dos participantes durante o sorteio |
-| RF-10 | Registrar e exibir resultado do sorteio: número, comprador, data/hora; telefone exibido apenas com **2 últimos dígitos** (revelação completa só no painel do organizador, ao tocar) |
-| RF-11 | Tela pública por link com dados, progresso com marca do mínimo e lista de números; telefone e nomes dos compradores não expostos na grade |
-| RF-12 | Tela pública de resultado do sorteio em **rota própria** (#/r/{slug}/resultado) |
-| RF-13 | Copiar link da rifa e copiar o texto do resultado para compartilhamento |
-| RF-14 | Editar rifa (exceto quantidade com vendas); arquivar; excluir só sem vendas |
-| RF-15 | Desfazer sorteio, mantendo histórico do resultado anulado (invisível em tela) |
-| RF-16 | Persistir tudo em banco de dados no servidor (rifas, números, compradores, sorteios) |
-| RF-17 | Upload e redimensionamento de imagem de prêmio (JPG/PNG/WEBP, máx 5 MB) |
-| RF-18 | Refletir vendas em tempo real na grade e atualizar resumos/percentuais a cada venda |
+| ID     | Requisito                                                                                                                                                                                                                   |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RF-01  | Criar rifa com: título, descrição (opc), nome do prêmio, **rótulo do valor do prêmio** (Valor estimado · Mais de · Até) e valor, valor do número, quantidade (25–5.000), quantidade mínima, foto (opc), data prevista (opc) |
+| RF-02  | Gerar automaticamente a lista de números de **001 até a quantidade**, com zero à esquerda e no mínimo 3 dígitos                                                                                                             |
+| RF-03  | Listar rifas na home com status, progresso de vendas e foto                                                                                                                                                                 |
+| RF-04  | Exibir painel da rifa (T3) com dados, resumo financeiro **visível apenas aqui** (vendidos/total, disponíveis, arrecadado, potencial) e grade de números                                                                     |
+| RF-05  | Ao tocar um número, abrir modal para informar nome e telefone do comprador; salvar marca como vendido                                                                                                                       |
+| RF-05a | Pelo **link público (T4)**, permitir registrar comprador apenas em números disponíveis; edição/transferência/remoção exclusivas do organizador (T3)                                                                         |
+| RF-06  | Editar e remover venda (transferência/desistência), com confirmação na remoção                                                                                                                                              |
+| RF-07  | Buscar por número e por comprador (nome/telefone); filtrar por estado                                                                                                                                                       |
+| RF-08  | Encerrar vendas (bloqueia novas marcações) e reabrir; **ao encerrar abaixo da quantidade mínima, exibir aviso e deixar o organizador decidir**                                                                              |
+| RF-09  | Realizar sorteio somente entre números vendidos (bloqueia com 0 vendidos), com confirmação prévia                                                                                                                           |
+| RF-09a | **Animação de roleta** com os primeiros nomes dos participantes durante o sorteio                                                                                                                                           |
+| RF-10  | Registrar e exibir resultado do sorteio: número, comprador, data/hora; telefone exibido apenas com **2 últimos dígitos** (revelação completa só no painel do organizador, ao tocar)                                         |
+| RF-11  | Tela pública por link com dados, progresso com marca do mínimo e lista de números; telefone e nomes dos compradores não expostos na grade                                                                                   |
+| RF-12  | Tela pública de resultado do sorteio em **rota própria** (#/r/{slug}/resultado)                                                                                                                                             |
+| RF-13  | Copiar link da rifa e copiar o texto do resultado para compartilhamento                                                                                                                                                     |
+| RF-14  | Editar rifa (exceto quantidade com vendas); arquivar; excluir só sem vendas                                                                                                                                                 |
+| RF-15  | Desfazer sorteio, mantendo histórico do resultado anulado (invisível em tela)                                                                                                                                               |
+| RF-16  | Persistir tudo em banco de dados no servidor (rifas, números, compradores, sorteios)                                                                                                                                        |
+| RF-17  | Upload e redimensionamento de imagem de prêmio (JPG/PNG/WEBP, máx 5 MB)                                                                                                                                                     |
+| RF-18  | Refletir vendas em tempo real na grade e atualizar resumos/percentuais a cada venda                                                                                                                                         |
 
 ## 6. Requisitos Não-Funcionais
 
-| ID | Requisito |
-|---|---|
-| RNF-01 | **Multiplataforma:** web responsiva, 360px (celular pequeno) a desktop; touch-first |
-| RNF-02 | **Online:** funciona como site com **PWA** (instalável na tela inicial do celular, com ícone); dados no servidor |
-| RNF-03 | **Usabilidade:** qualquer operação principal em ≤ 3 toques; rótulos em português claro; fontes grandes e botões com área ≥ 44px |
-| RNF-04 | **Desempenho:** grade de até 5.000 números fluida (paginação/virtualização); tempo de carregamento da rifa < 2s em 4G |
+| ID     | Requisito                                                                                                                                                                       |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RNF-01 | **Multiplataforma:** web responsiva, 360px (celular pequeno) a desktop; touch-first                                                                                             |
+| RNF-02 | **Online:** funciona como site com **PWA** (instalável na tela inicial do celular, com ícone); dados no servidor                                                                |
+| RNF-03 | **Usabilidade:** qualquer operação principal em ≤ 3 toques; rótulos em português claro; fontes grandes e botões com área ≥ 44px                                                 |
+| RNF-04 | **Desempenho:** grade de até 5.000 números fluida (paginação/virtualização); tempo de carregamento da rifa < 2s em 4G                                                           |
 | RNF-05 | **Privacidade:** nomes dos compradores não aparecem na grade pública; telefone do ganhador aparece apenas com 2 últimos dígitos, com revelação completa restrita ao organizador |
-| RNF-06 | **Confiabilidade:** gravação no servidor em cada ação; sortear é atômico (não sorteia duas vezes sem que o registro anterior seja anulado) |
-| RNF-07 | **Aleatoriedade:** sorteio com gerador aleatório criptográfico do servidor (não `Math.random`), para confiança |
-| RNF-08 | **Idioma:** todo em português (pt-BR); moeda Real |
+| RNF-06 | **Confiabilidade:** gravação no servidor em cada ação; sortear é atômico (não sorteia duas vezes sem que o registro anterior seja anulado)                                      |
+| RNF-07 | **Aleatoriedade:** sorteio com gerador aleatório criptográfico do servidor (não `Math.random`), para confiança                                                                  |
+| RNF-08 | **Idioma:** todo em português (pt-BR); moeda Real                                                                                                                               |
 
 ---
 
@@ -325,10 +339,10 @@ _alternativa:_ recarregar a página/fechar o app não perde nada — dados são 
 
 Ordem sugerida por valor/complexidade:
 
-| Fase | Melhoria | Valor |
-|---|---|---|
-| 2 | Compra self-service: visitante escolhe e "reserva" número; organizador confirma | Reduz trabalho manual do organizador |
-| 2 | Integração Pix: chave Pix exibida a cada compra + confirmação automática de pagamento | Agiliza arrecadação |
-| 2 | Sorteio com transmissão ao vivo / link direto para acompanhar | Transparência e engajamento |
-| 3 | Notificações: lembrete automático quando o sorteio estiver próximo | Reduz rifas esquecidas |
-| 4 | Extrato financeiro por rifa (vendido, recebido, a receber) | Controle financeiro |
+| Fase | Melhoria                                                                              | Valor                                |
+| ---- | ------------------------------------------------------------------------------------- | ------------------------------------ |
+| 2    | Compra self-service: visitante escolhe e "reserva" número; organizador confirma       | Reduz trabalho manual do organizador |
+| 2    | Integração Pix: chave Pix exibida a cada compra + confirmação automática de pagamento | Agiliza arrecadação                  |
+| 2    | Sorteio com transmissão ao vivo / link direto para acompanhar                         | Transparência e engajamento          |
+| 3    | Notificações: lembrete automático quando o sorteio estiver próximo                    | Reduz rifas esquecidas               |
+| 4    | Extrato financeiro por rifa (vendido, recebido, a receber)                            | Controle financeiro                  |

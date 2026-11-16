@@ -7,16 +7,16 @@
 
 ## 1. Stack Definida (única decisão, sem alternativas)
 
-| Camada | Tecnologia | Papel |
-|---|---|---|
-| **Framework** | **Next.js (versão LTS atual) + TypeScript + App Router** | Front-end e "back-end" (Server Actions e Route Handlers) em um único projeto |
-| **Estilo/UI** | **Tailwind CSS** | UI responsiva e mobile-first, grid de números |
-| **Banco de dados** | **PostgreSQL gerenciado pelo Supabase** (plano gratuito) | Rifas, números, compradores, sorteios |
-| **Autenticação** | **Supabase Auth** (e-mail + senha) | Conta única do organizador |
-| **Armazenamento de imagens** | **Supabase Storage** (plano gratuito) | Foto do prêmio |
-| **Hospedagem** | **Vercel** (plano Hobby, gratuito) | Deploy do app, HTTPS e CDN automáticos |
-| **PWA** | Manifest + service worker (PWA nativo do Next.js) | Ícone na tela inicial do celular |
-| **Validação** | **Zod** | Validar formulários e payloads |
+| Camada                       | Tecnologia                                               | Papel                                                                        |
+| ---------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **Framework**                | **Next.js (versão LTS atual) + TypeScript + App Router** | Front-end e "back-end" (Server Actions e Route Handlers) em um único projeto |
+| **Estilo/UI**                | **Tailwind CSS**                                         | UI responsiva e mobile-first, grid de números                                |
+| **Banco de dados**           | **PostgreSQL gerenciado pelo Supabase** (plano gratuito) | Rifas, números, compradores, sorteios                                        |
+| **Autenticação**             | **Supabase Auth** (e-mail + senha)                       | Conta única do organizador                                                   |
+| **Armazenamento de imagens** | **Supabase Storage** (plano gratuito)                    | Foto do prêmio                                                               |
+| **Hospedagem**               | **Vercel** (plano Hobby, gratuito)                       | Deploy do app, HTTPS e CDN automáticos                                       |
+| **PWA**                      | Manifest + service worker (PWA nativo do Next.js)        | Ícone na tela inicial do celular                                             |
+| **Validação**                | **Zod**                                                  | Validar formulários e payloads                                               |
 
 ### 1.1 Por que essa combinação
 
@@ -27,12 +27,12 @@
 
 ### 1.2 Limites do plano gratuito (confortáveis para a v1)
 
-| Serviço | Limite gratuito | Encaixe no Rifa App |
-|---|---|---|
-| Vercel Hobby | Deploy ilimitado de uso pessoal, HTTPS/CDN | Cobre o app inteiro |
-| Supabase DB | 500 MB | ~100 mil números cabem em poucos MB; anos de uso |
-| Supabase Storage | 1 GB | ~200 fotos de 5 MB reduzidas (< 300 KB cada após compressão) |
-| Supabase Auth | 50 mil usuários/mês | 1 organizador |
+| Serviço          | Limite gratuito                            | Encaixe no Rifa App                                          |
+| ---------------- | ------------------------------------------ | ------------------------------------------------------------ |
+| Vercel Hobby     | Deploy ilimitado de uso pessoal, HTTPS/CDN | Cobre o app inteiro                                          |
+| Supabase DB      | 500 MB                                     | ~100 mil números cabem em poucos MB; anos de uso             |
+| Supabase Storage | 1 GB                                       | ~200 fotos de 5 MB reduzidas (< 300 KB cada após compressão) |
+| Supabase Auth    | 50 mil usuários/mês                        | 1 organizador                                                |
 
 ---
 
@@ -58,6 +58,7 @@
 ```
 
 **Divisão clara:**
+
 - **Leitura** (tela pública T4/T5): chamada direta do browser ao Supabase com a chave pública `anon`, protegida por **Row Level Security** (RLS) que só permite ver rifas não excluídas/arquivadas e **nunca** retorna telefone de comprador (ver modelo de dados).
 - **Escrita** (criar rifa, marcar venda, encerrar, sortear, upload): sempre por **Server Action** (roda no servidor Vercel), valida com Zod e usa a chave de serviço. Assim nem consultores nem visitantes conseguem escrever direto — só pela interface.
 - **Sorteio:** implementado como **função no Postgres (RPC)** chamada pela Server Action — garante **atomicidade** (uma única transação: confere estado, sorteia, grava resultado, muda status), mesmo se dois cliques acontecerem ao mesmo tempo.
@@ -65,24 +66,24 @@
 
 ### 2.1 Acesso e autenticação (decisão 2 do produto)
 
-| Perfil | Como acessa | Pode fazer |
-|---|---|---|
-| **Organizador** | Login e-mail + senha (Supabase Auth). Conta criada no primeiro uso; **sem cadastro público** | Todas as telas do organizador (T1/T2/T3) e operações de escrita |
-| **Visitante / Consultor** | Link público `/r/{slug}` e `/r/{slug}/resultado`, sem login | Ver T4/T5 e **registrar comprador em número disponível** |
+| Perfil                    | Como acessa                                                                                  | Pode fazer                                                      |
+| ------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| **Organizador**           | Login e-mail + senha (Supabase Auth). Conta criada no primeiro uso; **sem cadastro público** | Todas as telas do organizador (T1/T2/T3) e operações de escrita |
+| **Visitante / Consultor** | Link público `/r/{slug}` e `/r/{slug}/resultado`, sem login                                  | Ver T4/T5 e **registrar comprador em número disponível**        |
 
 - No primeiro login, o organizador preenche **nome de exibição** e **WhatsApp/telefone de contato** (perfil), exibidos no rodapé da tela pública.
 - Sessão via cookies do Supabase Auth (`@supabase/ssr`), httpOnly.
 
 ### 2.2 URLs
 
-| Rota | Tela | Acesso |
-|---|---|---|
-| `/` | T1 · Minhas Rifas | organizador |
-| `/rifas/nova` e `/rifas/{id}/editar` | T2 · Criar/Editar | organizador |
-| `/rifas/{id}` | T3 · Painel da Rifa | organizador |
-| `/r/{slug}` | T4 · Rifa pública | público |
-| `/r/{slug}/resultado` | T5 · Resultado do sorteio | público (rota própria, decisão 5) |
-| `/entrar` | Login | público |
+| Rota                                 | Tela                      | Acesso                            |
+| ------------------------------------ | ------------------------- | --------------------------------- |
+| `/`                                  | T1 · Minhas Rifas         | organizador                       |
+| `/rifas/nova` e `/rifas/{id}/editar` | T2 · Criar/Editar         | organizador                       |
+| `/rifas/{id}`                        | T3 · Painel da Rifa       | organizador                       |
+| `/r/{slug}`                          | T4 · Rifa pública         | público                           |
+| `/r/{slug}/resultado`                | T5 · Resultado do sorteio | público (rota própria, decisão 5) |
+| `/entrar`                            | Login                     | público                           |
 
 - **Slug** único, gerado do título + sufixo curto (ex.: `rifa-do-forno-2026-x7k2`), é a chave das URLs públicas.
 
@@ -175,14 +176,14 @@ CREATE TABLE sorteios (
 
 ### 3.3 Segurança de dados com RLS (essencial neste app)
 
-| Tabela | Papel `anon` (visitante) | Papel `authenticated` (organizador) |
-|---|---|---|
-| `rifas` | SELECT (sem arquivada/excluida) | tudo (próprias) |
-| `numeros` | SELECT | tudo |
-| `compradores` | **nenhum** | tudo |
-| `vendas` | **nenhum** (telefone fica fora do alcance público) | tudo |
-| `sorteios` | SELECT (resultado vigente) | tudo |
-| `perfis` | SELECT (nome + whatsapp p/ rodapé da T4) | própria (UPDATE) |
+| Tabela        | Papel `anon` (visitante)                           | Papel `authenticated` (organizador) |
+| ------------- | -------------------------------------------------- | ----------------------------------- |
+| `rifas`       | SELECT (sem arquivada/excluida)                    | tudo (próprias)                     |
+| `numeros`     | SELECT                                             | tudo                                |
+| `compradores` | **nenhum**                                         | tudo                                |
+| `vendas`      | **nenhum** (telefone fica fora do alcance público) | tudo                                |
+| `sorteios`    | SELECT (resultado vigente)                         | tudo                                |
+| `perfis`      | SELECT (nome + whatsapp p/ rodapé da T4)           | própria (UPDATE)                    |
 
 - Escritas de venda pelo **link público** passam por **Server Action** (chave de serviço + validações de estado), evitando abrir INSERT de `vendas` ao anon no banco. Regra: o anon lê, o servidor escreve.
 - Escritas do organizador também passam por Server Actions (autenticadas), sempre com validação Zod.
@@ -210,16 +211,16 @@ sortear_rifa(rifa uuid)
 
 Sem REST próprio — o front chama funções de servidor:
 
-| Server Action | Acesso | Validações principais |
-|---|---|---|
-| `criarRifa(dados)` / `editarRifa(id, dados)` | organizador | Zod; edição bloqueia `quantidade` com vendas (RN-09) |
-| `excluirRifa(id)` / `arquivarRifa(id)` | organizador | exclusão só sem vendas (RN-09) |
-| `registrarVenda(numeroId, nome, telefone)` | **público** | rifa `aberta`, número `disponivel` (RN-03); valida telefone |
-| `editarVenda(numeroId, ...)` / `removerVenda(numeroId)` | organizador | transfêre/libera número |
-| `encerrarVendas(id)` / `reabrirVendas(id)` | organizador | transições apenas `aberta↔encerrada` |
-| `sortear(id)` | organizador | delega à RPC `sortear_rifa` |
-| `desfazerSorteio(id)` | organizador | só se `status = 'sorteada'` |
-| `enviarFoto(file)` | organizador | JPG/PNG/WEBP ≤ 5 MB → Supabase Storage |
+| Server Action                                           | Acesso      | Validações principais                                       |
+| ------------------------------------------------------- | ----------- | ----------------------------------------------------------- |
+| `criarRifa(dados)` / `editarRifa(id, dados)`            | organizador | Zod; edição bloqueia `quantidade` com vendas (RN-09)        |
+| `excluirRifa(id)` / `arquivarRifa(id)`                  | organizador | exclusão só sem vendas (RN-09)                              |
+| `registrarVenda(numeroId, nome, telefone)`              | **público** | rifa `aberta`, número `disponivel` (RN-03); valida telefone |
+| `editarVenda(numeroId, ...)` / `removerVenda(numeroId)` | organizador | transfêre/libera número                                     |
+| `encerrarVendas(id)` / `reabrirVendas(id)`              | organizador | transições apenas `aberta↔encerrada`                        |
+| `sortear(id)`                                           | organizador | delega à RPC `sortear_rifa`                                 |
+| `desfazerSorteio(id)`                                   | organizador | só se `status = 'sorteada'`                                 |
+| `enviarFoto(file)`                                      | organizador | JPG/PNG/WEBP ≤ 5 MB → Supabase Storage                      |
 
 **Regras de erro:** cada falha devolve mensagem já em pt-BR pronta para o toast (ex.: "Esse número acabou de ser vendido").
 
@@ -284,6 +285,7 @@ rifa-app/
 ```
 
 **Decisões estruturais:**
+
 - **Um único app Next.js** — sem pacote separado de tipos; `lib/schemas.ts` + tipos do Supabase (`supabase gen types`) cobrem o contrato.
 - Migrações SQL versionadas no repositório (`supabase/migrations`), aplicadas via Supabase CLI/CI.
 - Testes focados no domínio crítico, com Postgres real local (Supabase CLI): `sortear_rifa` (atomicidade, estados, 0 vendidos, sorteio repetido) e `vendas` (concorrência no mesmo número, RN-03). Vitest + Playwright para E2E (criar → vender → sortear).
@@ -291,34 +293,35 @@ rifa-app/
 ---
 
 ## 6. Front-end — pontos-chave de implementação
-| Desafio | Solução |
-|---|---|
-| Números de 001 a quantidade (decisão 4) | `formatarNumero(n)`: padStart para no mínimo 3 dígitos — "001", "037", "1200" (4 dígitos quando precisar) |
-| Grade de até 5.000 números fluida (RNF-04) | Grade paginada por blocos de 100 + navegação "‹ anterior/próxima ›" e salto por bloco; CSS Grid `aspect-ratio: 1` |
-| Moeda e telefone pt-BR | `Intl.NumberFormat('pt-BR')` para BRL; máscara "(XX) XXXXX-XXXX" durante digitação; grava em E.164 |
-| Atualização em tempo real (RF-18) | Supabase Realtime: grade, progresso e modal respondem a mudanças no número |
-| Otimismo com rollback | Venda salva: pastilha muda na hora; se o servidor recusar (ex.: número vendido 1 segundo antes por outro consultor), rollback + toast "Esse número acabou de ser vendido" |
-| Animação da roleta (RF-09a) | Componente client: recebe os primeiros nomes dos vendidos, gira 3–5 s (CSS/JS), desacelera no número retornado pelo sorteio — gravação e exibição ficam prontas depois |
-| Revelação do telefone do ganhador (RF-10) | No T3, dígitos "••" clicáveis; ao tocar, mostra telefone completo (só organizador; auditado no lado servidor por permissão) |
-| Foto do prêmio | `<input type="file" accept="image/*" capture="environment">` (abre câmera no celular); compressão client (canvas) antes do upload; exibição via `next/image` (redimensionamento/otimização na Vercel) |
-| PWA (decisão 6) | `manifest.webmanifest` + service worker simples (offline de shells); botão "Instalar app" no T1 quando suportado |
-| Estados visuais do número | Disponível `bg-slate-100` · Vendido `bg-emerald-500 ✓` · Sorteado `bg-amber-400 🏆 ring` |
-| Offline (F7) | `navigator.onLine` + banner "Sem conexão"; ações de gravação bloqueadas (sem fila offline na v1) |
+
+| Desafio                                    | Solução                                                                                                                                                                                               |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Números de 001 a quantidade (decisão 4)    | `formatarNumero(n)`: padStart para no mínimo 3 dígitos — "001", "037", "1200" (4 dígitos quando precisar)                                                                                             |
+| Grade de até 5.000 números fluida (RNF-04) | Grade paginada por blocos de 100 + navegação "‹ anterior/próxima ›" e salto por bloco; CSS Grid `aspect-ratio: 1`                                                                                     |
+| Moeda e telefone pt-BR                     | `Intl.NumberFormat('pt-BR')` para BRL; máscara "(XX) XXXXX-XXXX" durante digitação; grava em E.164                                                                                                    |
+| Atualização em tempo real (RF-18)          | Supabase Realtime: grade, progresso e modal respondem a mudanças no número                                                                                                                            |
+| Otimismo com rollback                      | Venda salva: pastilha muda na hora; se o servidor recusar (ex.: número vendido 1 segundo antes por outro consultor), rollback + toast "Esse número acabou de ser vendido"                             |
+| Animação da roleta (RF-09a)                | Componente client: recebe os primeiros nomes dos vendidos, gira 3–5 s (CSS/JS), desacelera no número retornado pelo sorteio — gravação e exibição ficam prontas depois                                |
+| Revelação do telefone do ganhador (RF-10)  | No T3, dígitos "••" clicáveis; ao tocar, mostra telefone completo (só organizador; auditado no lado servidor por permissão)                                                                           |
+| Foto do prêmio                             | `<input type="file" accept="image/*" capture="environment">` (abre câmera no celular); compressão client (canvas) antes do upload; exibição via `next/image` (redimensionamento/otimização na Vercel) |
+| PWA (decisão 6)                            | `manifest.webmanifest` + service worker simples (offline de shells); botão "Instalar app" no T1 quando suportado                                                                                      |
+| Estados visuais do número                  | Disponível `bg-slate-100` · Vendido `bg-emerald-500 ✓` · Sorteado `bg-amber-400 🏆 ring`                                                                                                              |
+| Offline (F7)                               | `navigator.onLine` + banner "Sem conexão"; ações de gravação bloqueadas (sem fila offline na v1)                                                                                                      |
 
 ---
 
 ## 7. Segurança & Privacidade
 
-| Tema | Providência |
-|---|---|
-| Senhas | Geridas pelo Supabase Auth (hash interno, política mínima configurável) |
-| Sessão | Cookies httpOnly do `@supabase/ssr` |
+| Tema                          | Providência                                                                                                                                                                                            |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Senhas                        | Geridas pelo Supabase Auth (hash interno, política mínima configurável)                                                                                                                                |
+| Sessão                        | Cookies httpOnly do `@supabase/ssr`                                                                                                                                                                    |
 | Telefone/nome dos compradores | **Nunca** retornados ao papel `anon` (RLS bloqueia `compradores`/`vendas`); tela pública só mostra estado "vendido". Resultado (T5) exibe o nome do ganhador e só os **2 últimos dígitos do telefone** |
-| Chaves | `anon` pública no browser; `service_role` **somente** em Server Actions (variáveis de ambiente do servidor) |
-| Upload | Validação de tipo real (magic bytes) + tamanho ≤ 5 MB; redimensionamento e compressão client antes do upload |
-| SQL | Todas as queries via client tipado do Supabase (parametrizadas) |
-| Rate limit | Supabase Auth já limita login; Server Action crítica (registrarVenda) tem guarda simples de ritmo por sessão/IP |
-| CORS/Domínio | Front na Vercel; Supabase restrito ao domínio do app |
+| Chaves                        | `anon` pública no browser; `service_role` **somente** em Server Actions (variáveis de ambiente do servidor)                                                                                            |
+| Upload                        | Validação de tipo real (magic bytes) + tamanho ≤ 5 MB; redimensionamento e compressão client antes do upload                                                                                           |
+| SQL                           | Todas as queries via client tipado do Supabase (parametrizadas)                                                                                                                                        |
+| Rate limit                    | Supabase Auth já limita login; Server Action crítica (registrarVenda) tem guarda simples de ritmo por sessão/IP                                                                                        |
+| CORS/Domínio                  | Front na Vercel; Supabase restrito ao domínio do app                                                                                                                                                   |
 
 ---
 
@@ -336,13 +339,13 @@ rifa-app/
 
 ## 9. Roteiro de Implementação
 
-| Marco | Escopo | Critério de aceite |
-|---|---|---|
-| **M1 — Fundação** (≈ 3–4 dias) | Projeto Next.js + Supabase, migrações + RLS, login do organizador, perfil (nome de exibição + WhatsApp), T1/T2 | criar/listar rifa (sem foto) |
-| **M2 — Tela de gestão** (≈ 4–5 dias) | T3: grade paginada, modal de venda (organizador e via link público simples), resumo, busca, Realtime | registrar/editar/remover venda com persistência e sync em tempo real |
-| **M3 — Ciclo + sorteio** (≈ 3–4 dias) | Encerrar (com aviso abaixo do mínimo)/reabrir, RPC do sorteio, T5 rota própria, desfazer sorteio, roleta | sorteio só entre vendidos, atômico; anulação funciona |
-| **M4 — Público + foto + PWA** (≈ 3–4 dias) | T4 completa (modal público restrito), upload/compressão de foto, copiar link/resultado, PWA instalável | visitante sem login vê rifa e resultado; app instala no celular |
-| **M5 — Polimento** (≈ 3 dias) | Empty states, toasts, responsividade final, E2E Playwright (criar→vender→sortear), revisão de segurança | pronto para uso real |
+| Marco                                      | Escopo                                                                                                         | Critério de aceite                                                   |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **M1 — Fundação** (≈ 3–4 dias)             | Projeto Next.js + Supabase, migrações + RLS, login do organizador, perfil (nome de exibição + WhatsApp), T1/T2 | criar/listar rifa (sem foto)                                         |
+| **M2 — Tela de gestão** (≈ 4–5 dias)       | T3: grade paginada, modal de venda (organizador e via link público simples), resumo, busca, Realtime           | registrar/editar/remover venda com persistência e sync em tempo real |
+| **M3 — Ciclo + sorteio** (≈ 3–4 dias)      | Encerrar (com aviso abaixo do mínimo)/reabrir, RPC do sorteio, T5 rota própria, desfazer sorteio, roleta       | sorteio só entre vendidos, atômico; anulação funciona                |
+| **M4 — Público + foto + PWA** (≈ 3–4 dias) | T4 completa (modal público restrito), upload/compressão de foto, copiar link/resultado, PWA instalável         | visitante sem login vê rifa e resultado; app instala no celular      |
+| **M5 — Polimento** (≈ 3 dias)              | Empty states, toasts, responsividade final, E2E Playwright (criar→vender→sortear), revisão de segurança        | pronto para uso real                                                 |
 
 **Total estimado:** ~2 a 3 semanas de trabalho focado (1 pessoa).
 
@@ -362,4 +365,5 @@ rifa-app/
 10. **Quantidade mínima**: gera aviso **apenas ao encerrar as vendas**; no sorteio não há bloqueio nem aviso.
 
 ---
-*Documento acompanha `PRODUTO.md` v1.1. Nenhum código-fonte foi criado nesta fase.*
+
+_Documento acompanha `PRODUTO.md` v1.1. Nenhum código-fonte foi criado nesta fase._

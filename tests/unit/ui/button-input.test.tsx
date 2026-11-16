@@ -26,7 +26,7 @@ describe("componente Button (ET-9)", () => {
     render(
       <Button disabled onClick={aoClicar}>
         Encerrar vendas
-      </Button>
+      </Button>,
     );
 
     const botao = screen.getByRole("button", { name: "Encerrar vendas" });
@@ -49,16 +49,11 @@ describe("componente Input (ET-9)", () => {
   });
 
   it("deve exibir estado de erro com mensagem pt-BR vinculada por aria", () => {
-    render(
-      <Input id="nome" rotulo="Nome" erro="Informe um nome com pelo menos 2 letras" />
-    );
+    render(<Input id="nome" rotulo="Nome" erro="Informe um nome com pelo menos 2 letras" />);
 
     const campo = screen.getByLabelText("Nome");
     expect(campo).toHaveAttribute("aria-invalid", "true");
-    expect(campo).toHaveAttribute(
-      "aria-describedby",
-      expect.stringContaining("erro")
-    );
+    expect(campo).toHaveAttribute("aria-describedby", expect.stringContaining("erro"));
 
     const mensagem = screen.getByText("Informe um nome com pelo menos 2 letras");
     expect(mensagem.id).toBe(campo.getAttribute("aria-describedby"));

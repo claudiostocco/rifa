@@ -43,6 +43,18 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"limites_venda_publica": {
+                  Row: {
+                    "atualizado_em": string,"chave_hash": string,"janela_iniciada_em": string,"tentativas": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "atualizado_em"?: string,"chave_hash": string,"janela_iniciada_em": string,"tentativas": number
+                  }
+                  Update: {
+                    "atualizado_em"?: string,"chave_hash"?: string,"janela_iniciada_em"?: string,"tentativas"?: number
+                  }
+                  Relationships: []
                 },"numeros": {
                   Row: {
                     "id": string,"numero": number,"rifa_id": string,"status": string
@@ -161,11 +173,20 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "perfil_do_usuario":
+            "consumir_limite_venda_publica":
+{ Args: { "p_chave_hash": string }; Returns: boolean
+                           },
+"desfazer_sorteio":
+{ Args: { "rifa": string }; Returns: string
+                           },
+"perfil_do_usuario":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
 "pertence_ao_propria_rifa":
 { Args: { "rifa": string }; Returns: boolean
+                           },
+"sortear_rifa":
+{ Args: { "rifa": string }; Returns: string
                            }
           }
           Enums: {

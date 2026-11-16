@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { RegistraServiceWorker } from "@/components/RegistraServiceWorker";
+import { StatusConexao } from "@/components/StatusConexao";
 
 import "./globals.css";
 
@@ -25,12 +26,11 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR">
       <body className="min-h-dvh bg-papel font-sans text-tinta antialiased">
+        <StatusConexao />
         {children}
         <RegistraServiceWorker />
       </body>

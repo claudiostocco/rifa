@@ -28,7 +28,7 @@ export function Input({ rotulo, id, erro, dica, className = "", ...props }: Inpu
         aria-describedby={descritoPor}
         className={[
           "min-h-[44px] w-full rounded-lg border bg-white px-3 text-base text-tinta",
-          "placeholder:text-tinta-suave/60 disabled:cursor-not-allowed disabled:bg-papel-escuro disabled:text-tinta-suave",
+          "placeholder:text-tinta-suave disabled:cursor-not-allowed disabled:bg-papel-escuro disabled:text-tinta-suave",
           erro ? "border-red-600" : "border-linha focus:border-marca",
           className,
         ].join(" ")}

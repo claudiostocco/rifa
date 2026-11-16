@@ -1,0 +1,277 @@
+"use client";
+
+/**
+ * VT-3 · Grade de números (SPEC §3.4.4, RNF-03/RNF-04): pastilhas 001..N em
+ * blocos de 100 com navegação "‹ anterior / próxima ›" e salto por bloco
+ * (rifas ≥ 1.000). Componente client (paginação e toque), porém puramente
+ * apresentacional: os dados chegam prontos do Server Component consumidor e
+ * cada toque delega ao callback de quem consome (modal T3a na VT-4; variante
+ * pública na PB-2). Nada de consulta nem escrita aqui — a grade nunca é
+ * fonte de verdade (o servidor confere estado, §2.7).
+ */
+import { useMemo, useState, type ChangeEvent } from "react";
+
+import { Button } from "@/components/ui/Button";
+import type { StatusNumero } from "@/lib/estados";
+import { formatarNumero } from "@/lib/formato";
+
+export type PastilhaNumero = { numero: number; status: StatusNumero };
+
+const BLOCO_TAMANHO = 100;
+/** Salto por bloco (select) a partir de 10 blocos = rifas de 1.000+ (§3.4.4). */
+const BLOCOS_PARA_SALTO = 10;
+
+/**
+ * "Sorteado" é estado de EXIBIÇÃO (§2.7): vem do resultado vigente da rifa,
+ * nunca da tabela numeros — por isso entra nesta união e não no banco.
+ */
+type EstadoPastilha = StatusNumero | "sorteado";
+
+type EstiloPastilha = {
+  celula: string;
+  /** Classe de toque — só entra na pastilha interativa (T3). */
+  hover: string;
+  marcador: string;
+  rotulo: (numeroExibido: string) => string;
+};
+
+const ESTILOS: Record<EstadoPastilha, EstiloPastilha> = {
+  disponivel: {
+    celula: "border-linha bg-white text-tinta",
+    /** A cor de toque só faz sentido na pastilha interativa (T3). */
+    hover: "hover:bg-papel-escuro",
+    marcador: "",
+    rotulo: (numeroExibido) => `Número ${numeroExibido}, disponível`,
+  },
+  vendido: {
+    celula: "border-verde-venda/25 bg-verde-venda-suave text-verde-venda",
+    hover: "",
+    marcador: "✓",
+    rotulo: (numeroExibido) => `Número ${numeroExibido}, vendido`,
+  },
+  sorteado: {
+    celula: "border-ouro/40 bg-ouro-suave text-ouro",
+    hover: "",
+    marcador: "🏆",
+    rotulo: (numeroExibido) => `Número ${numeroExibido}, sorteado`,
+  },
+};
+
+type Props = {
+  /** Números como vêm do banco (1..N esperado); o que estiver fora da faixa não renderiza. */
+  numeros: PastilhaNumero[];
+  /** Total da rifa (coluna `quantidade`) — define a faixa exibida e os blocos. */
+  quantidade: number;
+  /** Vencedor vigente (§2.7): destaque dourado 🏆 por cima do status da tabela. */
+  numeroSorteado?: number;
+  /**
+   * VT-8 · número exato encontrado pela busca (§3.4.3/RF-07): anel de destaque
+   * por cima do estado — a pastilha segue tocável com seu rótulo normal.
+  */
+  numeroDestaque?: number;
+  /** PB-4 · número exato a localizar; deriva seu bloco sem estado/effect. */
+  numeroBusca?: number;
+  /**
+   * Ação do toque em qualquer pastilha (abrir modal — VT-4/PB-2). Na T4 o
+   * toque despacha o modal enxuto da PB-2 (§3.5): disponível abre o
+   * registro de comprador; vendido/sorteado mostra "Número já vendido."
+   * sem formulário — nada de edição na tela pública (RN-03).
+   */
+  aoTocarNumero?: (numero: number) => void;
+};
+
+export function GradeNumeros({
+  numeros,
+  quantidade,
+  numeroSorteado,
+  numeroDestaque,
+  numeroBusca,
+  aoTocarNumero,
+}: Props) {
+  const [blocoIndice, setBlocoIndice] = useState(0);
+
+  // Fora da faixa 1..quantidade nunca renderiza (§3.4.4) e o formato pt-BR
+  // (formatarNumero) só é pedido para o que está nela. Cada bloco é ordenado
+  // separadamente: rifas de 5.000 não pagam uma ordenação global em cada
+  // render, embora a deduplicação defensiva continue preservada.
+  const blocos = useMemo(() => {
+    const emFaixa = new Map<number, PastilhaNumero>();
+    for (const pastilha of numeros) {
+      if (
+        Number.isInteger(pastilha.numero) &&
+        pastilha.numero >= 1 &&
+        pastilha.numero <= quantidade
+      ) {
+        emFaixa.set(pastilha.numero, pastilha);
+      }
+    }
+
+    const agrupados = new Map<number, PastilhaNumero[]>();
+    for (const pastilha of emFaixa.values()) {
+      const indice = Math.floor((pastilha.numero - 1) / BLOCO_TAMANHO);
+      const grupo = agrupados.get(indice);
+      if (grupo) {
+        grupo.push(pastilha);
+      } else {
+        agrupados.set(indice, [pastilha]);
+      }
+    }
+    for (const grupo of agrupados.values()) {
+      grupo.sort((a, b) => a.numero - b.numero);
+    }
+    return agrupados;
+  }, [numeros, quantidade]);
+  const totalNumeros = useMemo(
+    () => [...blocos.values()].reduce((total, grupo) => total + grupo.length, 0),
+    [blocos],
+  );
+
+  // Paginação por faixa de número (001–100, 101–200…), não por posição do
+  // array: buracos de dados deslocam blocos, a numeração não.
+  const totalBlocos = Math.max(1, Math.ceil(quantidade / BLOCO_TAMANHO));
+  // Derivado em render (sem effect): a busca pública pode ancorar a grade no
+  // bloco do número exato; sem busca, dados encolhendo nunca deixam o bloco
+  // atual fora da faixa de blocos existentes.
+  const bloco = Math.min(
+    numeroBusca === undefined
+      ? blocoIndice
+      : Math.floor((numeroBusca - 1) / BLOCO_TAMANHO),
+    totalBlocos - 1,
+  );
+  const inicio = bloco * BLOCO_TAMANHO + 1;
+  const fim = Math.min((bloco + 1) * BLOCO_TAMANHO, quantidade);
+  const visiveis = blocos.get(bloco) ?? [];
+
+  const trocarBloco = (evento: ChangeEvent<HTMLSelectElement>) => {
+    setBlocoIndice(Number(evento.target.value));
+  };
+
+  return (
+    <section
+      aria-label="Grade de números da rifa"
+      className="rounded-card border border-linha bg-white p-4 shadow-sm"
+    >
+      {totalNumeros === 0 ? (
+        <p className="py-8 text-center text-sm text-tinta-suave">Nenhum número para exibir.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-5 gap-1.5">
+            {visiveis.map((pastilha) => {
+              const estado: EstadoPastilha =
+                pastilha.numero === numeroSorteado ? "sorteado" : pastilha.status;
+              const estilo = ESTILOS[estado];
+              const numeroExibido = formatarNumero(pastilha.numero);
+              const emDestaque = pastilha.numero === numeroDestaque;
+              const classes = [
+                "relative flex aspect-square items-center justify-center rounded-lg border text-sm font-semibold tabular-nums",
+                estilo.celula,
+                // VT-8: anel da busca vence visualmente sem trocar o estado.
+                emDestaque ? "ring-2 ring-marca ring-offset-2" : "",
+                aoTocarNumero ? estilo.hover : "",
+              ].join(" ");
+              const marcador = estilo.marcador ? (
+                <span aria-hidden="true" className="absolute right-1 top-1 text-[10px] leading-none">
+                  {estilo.marcador}
+                </span>
+              ) : null;
+
+              // T3/T4: botão que despacha ao consumidor (T4 sem callback
+              // nenhum — PB-1 pura leitura — sai como texto na tabulação).
+              return aoTocarNumero ? (
+                <button
+                  key={pastilha.numero}
+                  type="button"
+                  aria-label={estilo.rotulo(numeroExibido)}
+                  onClick={() => aoTocarNumero(pastilha.numero)}
+                  className={`${classes} transition-colors`}
+                >
+                  {numeroExibido}
+                  {marcador}
+                </button>
+              ) : (
+                <span key={pastilha.numero} aria-label={estilo.rotulo(numeroExibido)} className={classes}>
+                  {numeroExibido}
+                  {marcador}
+                </span>
+              );
+            })}
+          </div>
+
+          {totalBlocos > 1 ? (
+            <nav
+              aria-label="Navegação entre blocos de números"
+              className="mt-3 flex items-center justify-between gap-2"
+            >
+              <Button
+                variante="secundario"
+                disabled={bloco === 0}
+                onClick={() => setBlocoIndice(bloco - 1)}
+                className="px-3"
+              >
+                <span aria-hidden="true">‹</span> Anterior
+              </Button>
+
+              {totalBlocos >= BLOCOS_PARA_SALTO ? (
+                <select
+                  value={bloco}
+                  onChange={trocarBloco}
+                  aria-label="Ir para o bloco de números"
+                  className="min-h-[44px] rounded-lg border border-linha bg-white px-2 text-sm text-tinta"
+                >
+                  {Array.from({ length: totalBlocos }, (_, indice) => {
+                    const inicioOpcao = indice * BLOCO_TAMANHO + 1;
+                    const fimOpcao = Math.min((indice + 1) * BLOCO_TAMANHO, quantidade);
+                    return (
+                      <option key={indice} value={indice}>
+                        {formatarNumero(inicioOpcao)}–{formatarNumero(fimOpcao)}
+                      </option>
+                    );
+                  })}
+                </select>
+              ) : (
+                <p aria-live="polite" className="text-xs text-tinta-suave">
+                  Bloco {bloco + 1} de {totalBlocos} ({formatarNumero(inicio)}–{formatarNumero(fim)}
+                  )
+                </p>
+              )}
+
+              <Button
+                variante="secundario"
+                disabled={bloco === totalBlocos - 1}
+                onClick={() => setBlocoIndice(bloco + 1)}
+                className="px-3"
+              >
+                Próxima <span aria-hidden="true">›</span>
+              </Button>
+            </nav>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+}
+
+const INDICES_ESQUELETO = Array.from({ length: 100 }, (_, indice) => indice);
+
+/**
+ * Skeleton estável da grade (mesma malha e proporção do estado final — sem
+ * pulo de layout, padrão FD-12), exibido enquanto os números chegam do
+ * servidor. `role=status` anuncia o carregamento; `aria-hidden` mantém os
+ * blocos fora da leitura.
+ */
+export function EsqueletoGrade() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="rounded-card border border-linha bg-white p-4 shadow-sm"
+    >
+      <span className="sr-only">Carregando os números…</span>
+      <div aria-hidden="true" className="grid grid-cols-5 gap-1.5">
+        {INDICES_ESQUELETO.map((indice) => (
+          <div key={indice} className="aspect-square animate-pulse rounded-lg bg-papel-escuro" />
+        ))}
+      </div>
+    </div>
+  );
+}
