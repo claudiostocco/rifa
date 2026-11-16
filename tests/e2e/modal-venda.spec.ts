@@ -174,7 +174,7 @@ test.describe("VT-6 · Concorrência no mesmo número (RN-03)", () => {
    * unit da VT-6 em grade-com-modal.test.tsx). O resumo sobe a 4/100 pela
    * revalidação ao vivo — prova de que a corrida gravou UMA venda só.
    */
-  test("deve recusar venda em número vendido 1s antes por outro consultor com rollback da pastilha e toast prescrito", async ({
+  test("deve recusar venda em número vendido 1s antes por outro consultor e reconciliar a pastilha", async ({
     page,
   }) => {
     const rifa = await criarRifaDeTeste({

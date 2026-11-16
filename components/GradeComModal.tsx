@@ -200,17 +200,28 @@ export function GradeComModal({
     setErroServidor(null);
   };
 
-  /** VT-6 · recusa do servidor: rollback do otimismo + toast prescrito (§4.5)
-   *  e alerta inline com o modal aberto (recusa nunca engolida — VT-4). */
+  /** VT-6 · recusa do servidor: desfaz o otimismo local e reconcilia a
+   * confirmação autoritativa da corrida para `vendido` (§4.5). */
   const recusar = (mensagem: string, numero: number) => {
     setOtimistas((atuais) => {
-      if (!atuais.has(numero)) return atuais;
       const proximos = new Map(atuais);
-      proximos.delete(numero);
+      if (
+        mensagem === NUMERO_VENDIDO_AO_VIVO &&
+        mapaNumeros.get(numero)?.status === "disponivel"
+      ) {
+        proximos.set(numero, { de: "disponivel", para: "vendido" });
+      } else {
+        proximos.delete(numero);
+      }
       return proximos;
     });
     setErroServidor(mensagem);
     setAviso({ mensagem, tipo: "erro" });
+    if (mensagem === NUMERO_VENDIDO_AO_VIVO) {
+      // A recusa confirma que outro consultor já gravou a venda; revalide o
+      // resumo para refletir essa verdade, sem depender apenas do Realtime.
+      router.refresh();
+    }
   };
 
   /** Registrar (número disponível) ou transferir (número vendido, RF-06). */

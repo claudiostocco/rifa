@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
-import { arquivarRifa, type EstadoAcao } from "@/actions/rifas";
+import { arquivarRifa, excluirRifa, type EstadoAcao } from "@/actions/rifas";
 import { BarraProgresso } from "@/components/BarraProgresso";
 import { Badge } from "@/components/ui/Badge";
 import { classesBotaoPrimario } from "@/components/ui/Button";
@@ -47,10 +47,11 @@ type MenuRifaProps = {
   rifa: RifaDoCartao;
   pendente: boolean;
   aoArquivar: (id: string) => void;
+  aoExcluir: (id: string) => void;
 };
 
 /** Menu ⋮ do card (§3.2: abrir, editar, arquivar) — fecha em ESC/clique fora. */
-function MenuRifa({ rifa, pendente, aoArquivar }: MenuRifaProps) {
+function MenuRifa({ rifa, pendente, aoArquivar, aoExcluir }: MenuRifaProps) {
   const [aberto, setAberto] = React.useState(false);
   const referencia = React.useRef<HTMLDivElement>(null);
 
@@ -117,6 +118,15 @@ function MenuRifa({ rifa, pendente, aoArquivar }: MenuRifaProps) {
           >
             {pendente ? "Arquivando…" : "Arquivar"}
           </button>
+          <button
+            role="menuitem"
+            type="button"
+            disabled={pendente}
+            onClick={() => aoExcluir(rifa.id)}
+            className="block min-h-[44px] w-full px-4 py-2.5 text-left text-sm text-red-700 transition-colors hover:bg-red-50 disabled:opacity-40"
+          >
+            {pendente ? "Excluindo…" : "Excluir"}
+          </button>
         </div>
       ) : null}
     </div>
@@ -127,10 +137,11 @@ type CartaoRifaProps = {
   rifa: RifaDoCartao;
   arquivando: boolean;
   aoArquivar: (id: string) => void;
+  aoExcluir: (id: string) => void;
 };
 
 /** Card inteiro é o atalho a T3 (§3.2: tocar card → painel); o ⋮ fica fora do Link. */
-function CartaoRifa({ rifa, arquivando, aoArquivar }: CartaoRifaProps) {
+function CartaoRifa({ rifa, arquivando, aoArquivar, aoExcluir }: CartaoRifaProps) {
   const status = ROTULO_STATUS[rifa.status];
 
   return (
@@ -172,7 +183,12 @@ function CartaoRifa({ rifa, arquivando, aoArquivar }: CartaoRifaProps) {
         </div>
       </Link>
 
-      <MenuRifa rifa={rifa} pendente={arquivando} aoArquivar={aoArquivar} />
+      <MenuRifa
+        rifa={rifa}
+        pendente={arquivando}
+        aoArquivar={aoArquivar}
+        aoExcluir={aoExcluir}
+      />
     </li>
   );
 }
@@ -201,6 +217,16 @@ export function ListaRifas({ rifas }: Props) {
     setArquivandoId(id);
     iniciarPendente(async () => {
       const resultado: EstadoAcao = await arquivarRifa(id);
+      setAviso({ mensagem: resultado.mensagem, tipo: resultado.ok ? "sucesso" : "erro" });
+      setArquivandoId(null);
+      router.refresh();
+    });
+  };
+
+  const excluir = (id: string) => {
+    setArquivandoId(id);
+    iniciarPendente(async () => {
+      const resultado: EstadoAcao = await excluirRifa(id);
       setAviso({ mensagem: resultado.mensagem, tipo: resultado.ok ? "sucesso" : "erro" });
       setArquivandoId(null);
       router.refresh();
@@ -263,6 +289,7 @@ export function ListaRifas({ rifas }: Props) {
               rifa={rifa}
               arquivando={arquivandoId === rifa.id}
               aoArquivar={arquivar}
+              aoExcluir={excluir}
             />
           ))}
         </ul>

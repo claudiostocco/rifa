@@ -5,6 +5,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { criarClienteNavegador } from "@/lib/supabase/client";
 
 type MudancaStatusNumero = "INSERT" | "UPDATE" | "DELETE";
+let sequenciaCanais = 0;
 
 /** Registro do evento POSTGRES_CHANGES da tabela numeros (RF-18). */
 export type MudancaStatusNumeros = {
@@ -27,8 +28,11 @@ export function assinarMudancaNumeros(
 ): RealtimeChannel {
   const cliente = criarClienteNavegador();
 
+  const nomeCanal = `numeros-da-rifa-${rifaId}-${sequenciaCanais + 1}`;
+  sequenciaCanais += 1;
+
   return cliente
-    .channel(`numeros-da-rifa-${rifaId}`)
+    .channel(nomeCanal)
     .on(
       "postgres_changes",
       {

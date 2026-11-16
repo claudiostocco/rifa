@@ -3,9 +3,9 @@
  * §4.5) · matriz §5.2 RF-05 · VT-6 do PLAN.
  *
  * Teste 2: a pastilha muda para "vendido" NA HORA do Salvar e, quando o
- *   servidor recusa (o nº foi vendido 1s antes por outro consultor), volta a
- *   "disponível" com rollback + toast prescrito "Esse número acabou de ser
- *   vendido" — e o alerta inline do modal segue visível (recusa de Server
+ *   servidor recusa (o nº foi vendido 1s antes por outro consultor), reconcilia
+ *   para "vendido" com toast prescrito "Esse número acabou de ser vendido" —
+ *   e o alerta inline do modal segue visível (recusa de Server
  *   Action nunca é engolida, VT-4).
  *
  * A corrida é simulada de forma DETERMINÍSTICA: a Server Action é substituída
@@ -77,8 +77,8 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("VT-6 · Teste 2 (unit) — UI otimista com rollback na corrida do mesmo número", () => {
-  it("deve trocar a pastilha na hora ao salvar e reverter com rollback + toast quando o servidor recusa a corrida", async () => {
+describe("VT-6 · Teste 2 (unit) — UI otimista com reconciliação na corrida do mesmo número", () => {
+  it("deve trocar a pastilha na hora ao salvar e reconciliar para vendido quando o servidor recusa a corrida", async () => {
     const corrida = adiar<EstadoVenda>();
     vi.mocked(registrarVenda).mockReturnValue(corrida.promise);
 
@@ -105,20 +105,19 @@ describe("VT-6 · Teste 2 (unit) — UI otimista com rollback na corrida do mesm
       telefone: "+5511977776666",
     });
 
-    // Servidor RECUSA (outro consultor venceu a corrida — RN-03): rollback da
-    // pastilha + toast prescrito + alerta inline com o modal aberto.
+    // Servidor RECUSA porque outro consultor venceu a corrida — RN-03:
+    // reconcilia a pastilha para vendido + toast e alerta inline.
     corrida.resolver({ ok: false, mensagem: "Esse número acabou de ser vendido" });
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Número 037, disponível" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Número 037, vendido" })).toBeInTheDocument();
     });
-    expect(screen.queryByRole("button", { name: "Número 037, vendido" })).not.toBeInTheDocument();
 
     // Toast em erro (§4.5) e `role=alert` inline (VT-4 — recusa nunca engolida).
     expect(screen.getByRole("status")).toHaveTextContent("Esse número acabou de ser vendido");
     expect(within(modal).getByRole("alert")).toHaveTextContent("Esse número acabou de ser vendido");
-    // O refresh do painel só acontece no sucesso — recusa não revalida.
-    expect(roteador.refresh).not.toHaveBeenCalled();
+    // A recusa já confirmou o estado autoritativo e revalida o resumo.
+    expect(roteador.refresh).toHaveBeenCalled();
   });
 
   it("deve manter a pastilha vendida após o sucesso do servidor (otimismo confirmado, sem voltar atrás)", async () => {

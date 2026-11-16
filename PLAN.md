@@ -225,12 +225,12 @@
 - [x] **PL-3 · Desempenho (RNF-04)** — grade de 5.000 números fluida; carregamento da rifa < 2s em 4G _(grade agrupada/deduplicada uma vez por dados e ordenada apenas por bloco; lookup público usa mapa memoizado)_
   - [x] Teste 1 (E2E/perf): paginação na rifa de 5.000 sem travamentos (medição de fps/jank) — _`tests/e2e/desempenho-pl3.spec.ts`: exatamente 100 células no DOM, troca de bloco abaixo de 500 ms e pausa máxima de frames abaixo de 250 ms_
   - [x] Teste 2 (E2E/perf): carga fria de `/r/{slug}` < 2s em ambiente mobile (média de 3 execuções) — _mesma spec: cache desabilitado via CDP e média de três navegações abaixo de 2.000 ms_
-- [ ] **PL-4 · Revisão de segurança end-to-end**
-  - [ ] Teste 1 (int): suíte completa de RLS reexecutada em staging (anon lê o permitido, grava nada e nunca vê compradores)
-  - [ ] Teste 2 (int): `service_role` e segredos não aparecem no bundle do client (grep do build + testes de runtime)
-- [ ] **PL-5 · E2E jornada-mestre (critério de aceite): criar → vender → encerrar → sortear → desfazer → re-sortear → T5**
-  - [ ] Teste 1 (E2E): jornada de sucesso completa passando por T1→T2→T3→T4→T5 em viewport mobile
-  - [ ] Teste 2 (E2E): jornada com cenários de exceção: sorteio com 0 vendidos, exclusão negada oferecendo arquivar, offline durante venda
+- [x] **PL-4 · Revisão de segurança end-to-end** — RLS pública revisada e RPCs de escrita inacessíveis ao anon; bundle/runtime sem `service_role` ou segredos
+  - [x] Teste 1 (int): suíte completa de RLS reexecutada no Postgres local equivalente ao staging — _`tests/integration/fd2-rls.test.ts` + `tests/integration/pl4-rls.test.ts`: anon lê apenas dados publicados, nunca compradores/vendas, resultados anulados ou escritas diretas_
+  - [x] Teste 2 (int): `service_role` e segredos não aparecem no bundle do client (grep do build + testes de runtime) — _`tests/integration/pl4-bundle.test.ts`: auditoria dos chunks `.next/static` e guarda runtime da fábrica administrativa em ambiente de navegador_
+- [x] **PL-5 · E2E jornada-mestre (critério de aceite): criar → vender → encerrar → sortear → desfazer → re-sortear → T5** _(spec dedicada `tests/e2e/pl5-jornada-mestre.spec.ts`; menu da T1 expõe `Excluir` usando a Server Action existente, permitindo validar a recusa com vendas e o caminho de arquivamento prescrito)_
+  - [x] Teste 1 (E2E): jornada de sucesso completa passando por T1→T2→T3→T4→T5 em viewport mobile
+  - [x] Teste 2 (E2E): jornada com cenários de exceção: sorteio com 0 vendidos, exclusão negada oferecendo arquivar, offline durante venda
 - [ ] **PL-6 · Deploy em produção (Vercel)**
   - [ ] Configurar env vars, `remotePatterns` do storage no `next.config.mjs`, domínio e HTTPS
   - [ ] [ ] Verificar: em produção, o acesso público à T4/T5 e o login do organizador funcionam

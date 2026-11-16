@@ -44,6 +44,11 @@ function variaveisDoStackLocal(): Record<string, string> {
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
+  // O servidor Next local compartilha streams RSC e conexões Realtime entre
+  // workers; em CI, paralelismo faz eventos legítimos perderem a janela de
+  // convergência e produz "destination stream errored". A execução serial
+  // mantém a suíte determinística sem alterar o comportamento do app.
+  workers: process.env.CI ? 1 : undefined,
   forbidOnly: !process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "list",
