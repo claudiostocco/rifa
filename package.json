@@ -11,6 +11,7 @@
     "test": "vitest run --project unit",
     "test:int": "vitest run --project integration",
     "test:e2e": "playwright test",
+    "check:prod": "python3 verificar-producao.py --url \"$RIFA_PUBLICA_URL\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:start": "supabase start",

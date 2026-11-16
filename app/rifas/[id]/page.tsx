@@ -91,7 +91,7 @@ export default async function PaginaPainelRifa({ params }: Props) {
   // Component) — nunca confunde com a recusa abaixo nem com o 404 default.
   if (erroLeitura) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-12 pt-8">
+      <main className="mx-auto flex min-h-dvh max-w-[700px] flex-col px-6 pb-12 pt-8">
         <Recusa
           alerta
           mensagem="Não foi possível carregar a rifa. Verifique sua conexão e tente novamente."
@@ -102,7 +102,7 @@ export default async function PaginaPainelRifa({ params }: Props) {
   }
   if (!rifa) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-12 pt-8">
+      <main className="mx-auto flex min-h-dvh max-w-[700px] flex-col px-6 pb-12 pt-8">
         <Recusa mensagem="Não encontramos essa rifa na sua conta." />
       </main>
     );
@@ -121,7 +121,7 @@ export default async function PaginaPainelRifa({ params }: Props) {
     : `${rifa.premio_descricao} — ${formatarMoeda(rifa.premio_valor)}`;
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-12 pt-8">
+    <main className="mx-auto flex min-h-dvh max-w-[700px] flex-col px-6 pb-12 pt-8">
       <nav aria-label="Navegação do painel" className="mb-6">
         <Link
           href="/"

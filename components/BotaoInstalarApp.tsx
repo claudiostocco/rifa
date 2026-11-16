@@ -9,7 +9,7 @@ type EventoInstalacao = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
-export function BotaoInstalarApp() {
+export function BotaoInstalarApp({ rotulo = "Instalar app" }: { rotulo?: string }) {
   const [eventoInstalacao, setEventoInstalacao] = useState<EventoInstalacao | null>(null);
   const [instalado, setInstalado] = useState(false);
 
@@ -46,7 +46,7 @@ export function BotaoInstalarApp() {
 
   return (
     <Button type="button" onClick={() => void instalar()}>
-      Instalar app
+      {rotulo}
     </Button>
   );
 }

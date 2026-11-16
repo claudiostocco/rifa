@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import { EsqueletoGrade } from "@/components/GradeNumeros";
 import { GradePublica } from "@/components/GradePublica";
+import { BotaoInstalarApp } from "@/components/BotaoInstalarApp";
 import { EsqueletoProgresso, ProgressoPublico } from "@/components/ProgressoPublico";
 import { Badge } from "@/components/ui/Badge";
 import { classesBotaoPrimario } from "@/components/ui/Button";
@@ -14,10 +15,15 @@ import { formatarTelefone } from "@/lib/formato";
 import { eRotuloPremio } from "@/lib/schemas";
 import { criarClienteServidor } from "@/lib/supabase/server";
 
-export const metadata: Metadata = {
-  title: "Rifa",
-  description: "Veja os números disponíveis e garanta o seu na rifa.",
-};
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+
+  return {
+    title: "Rifa",
+    description: "Veja os números disponíveis e garanta o seu na rifa.",
+    manifest: `/r/${encodeURIComponent(slug)}/manifest.webmanifest`,
+  };
+}
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -123,7 +129,7 @@ export default async function PaginaRifaPublica({ params }: Props) {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 pb-12 pt-8">
+    <main className="mx-auto flex min-h-dvh max-w-[700px] flex-col px-6 pb-12 pt-8">
       <header className="space-y-3">
         {rifa.imagem_url ? (
           <Image
@@ -156,6 +162,8 @@ export default async function PaginaRifaPublica({ params }: Props) {
             Data prevista: {formatarData(rifa.data_prevista)}
           </p>
         ) : null}
+
+        <BotaoInstalarApp rotulo="Instalar atalho desta rifa" />
       </header>
 
       {/* Estado sorteada da §3.5: destaque do vencedor na grade + o link para

@@ -155,7 +155,7 @@ export function GradeNumeros({
         <p className="py-8 text-center text-sm text-tinta-suave">Nenhum número para exibir.</p>
       ) : (
         <>
-          <div className="grid grid-cols-5 gap-1.5">
+          <div className="mx-auto grid w-full max-w-[700px] grid-cols-5 gap-1.5 min-[800px]:grid-cols-10">
             {visiveis.map((pastilha) => {
               const estado: EstadoPastilha =
                 pastilha.numero === numeroSorteado ? "sorteado" : pastilha.status;
@@ -267,7 +267,10 @@ export function EsqueletoGrade() {
       className="rounded-card border border-linha bg-white p-4 shadow-sm"
     >
       <span className="sr-only">Carregando os números…</span>
-      <div aria-hidden="true" className="grid grid-cols-5 gap-1.5">
+      <div
+        aria-hidden="true"
+        className="mx-auto grid w-full max-w-[700px] grid-cols-5 gap-1.5 min-[800px]:grid-cols-10"
+      >
         {INDICES_ESQUELETO.map((indice) => (
           <div key={indice} className="aspect-square animate-pulse rounded-lg bg-papel-escuro" />
         ))}
