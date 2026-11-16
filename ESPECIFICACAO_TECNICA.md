@@ -15,7 +15,7 @@
 | **Autenticação**             | **Supabase Auth** (e-mail + senha)                       | Conta única do organizador                                                   |
 | **Armazenamento de imagens** | **Supabase Storage** (plano gratuito)                    | Foto do prêmio                                                               |
 | **Hospedagem**               | **Vercel** (plano Hobby, gratuito)                       | Deploy do app, HTTPS e CDN automáticos                                       |
-| **PWA**                      | Manifest + service worker (PWA nativo do Next.js)        | Ícone na tela inicial do celular                                             |
+| **PWA**                      | Manifest + service worker (PWA nativo do Next.js)        | Ícone na tela inicial; manifesto contextual por rifa na T4                    |
 | **Validação**                | **Zod**                                                  | Validar formulários e payloads                                               |
 
 ### 1.1 Por que essa combinação
@@ -86,6 +86,9 @@
 | `/entrar`                            | Login                     | público                           |
 
 - **Slug** único, gerado do título + sufixo curto (ex.: `rifa-do-forno-2026-x7k2`), é a chave das URLs públicas.
+- Na T4, o manifesto PWA contextual usa o slug como identidade, `start_url`
+  `/r/{slug}` e um `id` distinto por rifa; slug inexistente, arquivada ou
+  excluída retorna manifesto não encontrado.
 
 ---
 
@@ -298,13 +301,14 @@ rifa-app/
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Números de 001 a quantidade (decisão 4)    | `formatarNumero(n)`: padStart para no mínimo 3 dígitos — "001", "037", "1200" (4 dígitos quando precisar)                                                                                             |
 | Grade de até 5.000 números fluida (RNF-04) | Grade paginada por blocos de 100 + navegação "‹ anterior/próxima ›" e salto por bloco; CSS Grid `aspect-ratio: 1`                                                                                     |
+| Grade compacta para compartilhamento       | Em viewport ≥ 800 px, CSS Grid com 10 colunas e `max-width: 700px`; em telas menores, 5 colunas; o bloco de 100 fica em 10 linhas para fotografia/captura |
 | Moeda e telefone pt-BR                     | `Intl.NumberFormat('pt-BR')` para BRL; máscara "(XX) XXXXX-XXXX" durante digitação; grava em E.164                                                                                                    |
 | Atualização em tempo real (RF-18)          | Supabase Realtime: grade, progresso e modal respondem a mudanças no número                                                                                                                            |
 | Otimismo com rollback                      | Venda salva: pastilha muda na hora; se o servidor recusar (ex.: número vendido 1 segundo antes por outro consultor), rollback + toast "Esse número acabou de ser vendido"                             |
 | Animação da roleta (RF-09a)                | Componente client: recebe os primeiros nomes dos vendidos, gira 3–5 s (CSS/JS), desacelera no número retornado pelo sorteio — gravação e exibição ficam prontas depois                                |
 | Revelação do telefone do ganhador (RF-10)  | No T3, dígitos "••" clicáveis; ao tocar, mostra telefone completo (só organizador; auditado no lado servidor por permissão)                                                                           |
 | Foto do prêmio                             | `<input type="file" accept="image/*" capture="environment">` (abre câmera no celular); compressão client (canvas) antes do upload; exibição via `next/image` (redimensionamento/otimização na Vercel) |
-| PWA (decisão 6)                            | `manifest.webmanifest` + service worker simples (offline de shells); botão "Instalar app" no T1 quando suportado                                                                                      |
+| PWA (decisão 6)                            | `manifest.webmanifest` + service worker simples (offline de shells); botão "Instalar app" no T1 e "Instalar atalho desta rifa" na T4 quando suportado; manifesto contextual usa `/r/{slug}` |
 | Estados visuais do número                  | Disponível `bg-slate-100` · Vendido `bg-emerald-500 ✓` · Sorteado `bg-amber-400 🏆 ring`                                                                                                              |
 | Offline (F7)                               | `navigator.onLine` + banner "Sem conexão"; ações de gravação bloqueadas (sem fila offline na v1)                                                                                                      |
 

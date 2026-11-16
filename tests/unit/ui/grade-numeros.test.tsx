@@ -27,6 +27,9 @@ describe("GradeNumeros · Teste 1 (unit) — caminho feliz (§3.4.4)", () => {
     expect(screen.getByRole("button", { name: "Número 100, disponível" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Anterior/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Próxima/ })).not.toBeInTheDocument();
+
+    const grade = screen.getByRole("region", { name: "Grade de números da rifa" }).firstElementChild;
+    expect(grade).toHaveClass("grid-cols-5", "min-[800px]:grid-cols-10", "max-w-[700px]");
   });
 
   it("deve paginar rifa de 5.000 em blocos de 100 com navegação anterior/próxima e salto por bloco", async () => {
@@ -107,6 +110,9 @@ describe("GradeNumeros · Teste 2 (unit) — borda/erro (§3.4.4)", () => {
     expect(screen.getAllByRole("button", { name: /Número/ })).toHaveLength(100);
     expect(screen.queryByRole("button", { name: /Número 101/ })).not.toBeInTheDocument();
     expect(screen.queryByText("000")).not.toBeInTheDocument();
+
+    const grade = screen.getByRole("region", { name: "Grade de números da rifa" }).firstElementChild;
+    expect(grade).toHaveClass("min-[800px]:grid-cols-10", "max-w-[700px]");
   });
 });
 
@@ -151,5 +157,10 @@ describe("GradeNumeros · extras (borda)", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("Carregando os números…");
     expect(document.querySelectorAll('[aria-hidden="true"] > div')).toHaveLength(100);
+    expect(document.querySelector('[aria-hidden="true"]')).toHaveClass(
+      "grid-cols-5",
+      "min-[800px]:grid-cols-10",
+      "max-w-[700px]",
+    );
   });
 });

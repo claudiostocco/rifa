@@ -69,7 +69,7 @@ Pagamento online (Pix/cartão), compra self-service com reserva, múltiplos orga
 | Autenticação   | **Supabase Auth** (e-mail + senha)                       | Conta única do organizador; **sem cadastro público**                         |
 | Storage        | **Supabase Storage** (bucket `premios`)                  | Foto do prêmio                                                               |
 | Hospedagem     | **Vercel** (Hobby)                                       | Deploy, HTTPS e CDN automáticos                                              |
-| PWA            | Manifest + service worker (nativo do Next.js)            | Instalável no celular                                                        |
+| PWA            | Manifest + service worker (nativo do Next.js)            | Instalável no celular; T4 pode usar manifesto contextual por rifa            |
 | Validação      | **Zod**                                                  | Validar formulários e payloads (todos os DTOs em `lib/schemas.ts`)           |
 | Tempo real     | **Supabase Realtime** (`POSTGRES_CHANGES` em `numeros`)  | Grade e resumos atualizam ao vivo (RF-18)                                    |
 
@@ -279,6 +279,7 @@ rifa-app/
 | `/rifas/{id}`                        | T3 · Painel da Rifa       | organizador |
 | `/r/{slug}`                          | T4 · Rifa pública         | público     |
 | `/r/{slug}/resultado`                | T5 · Resultado do sorteio | público     |
+| `/r/{slug}/manifest.webmanifest`     | Manifesto PWA da rifa     | público     |
 | `/entrar`                            | Login                     | público     |
 
 **Slug** único, gerado do título + sufixo curto (ex.: `rifa-do-forno-2026-x7k2`); é a chave das URLs públicas.
@@ -331,6 +332,7 @@ T3 ──(copiar link / sortear)──▶ T4 · Rifa pública · T5 · Resultado
 ### 3.5 T4 · Rifa pública (consultor/comprador)
 
 - **Componentes:** banner foto/título/descrição; prêmio com rótulo e valor ("Mais de R$ 500 — Forno elétrico"); preço do número; data prevista (**campo omitido** se não informado); barra de progresso "37 de 100 números vendidos" com marca visual do mínimo; grade de números (disponíveis tocáveis; vendidos **apenas marcados "vendido" — sem nome nem telefone**); busca rápida de número; rodapé "Para comprar, fale com o organizador" + nome e WhatsApp do perfil.
+- Em viewport a partir de **800 px**, a grade usa **10 colunas** e permanece limitada a `max-width: 700px`, para que o bloco de 100 números fique compacto e possa ser fotografado/capturado para compartilhamento em WhatsApp e redes sociais. Em telas menores, mantém a malha mobile-first de 5 colunas.
 - **Modal público (T3a variante enxuta):** só **registrar comprador em número disponível**; número vendido → "Número já vendido", sem edição.
 - **Proibido:** exibir arrecadação, nomes ou telefones de compradores (RN-02, RNF-05).
 - **Estados:** carregando | pronta | offline (banner "Sem conexão"; gravações bloqueadas) | sorteada (destaque do vencedor + link "Ver resultado").
@@ -466,6 +468,8 @@ CriarRifaInput {
 ### 4.18 PWA e offline
 
 - PWA instalável (manifest + service worker leve de shell; botão "Instalar app" na T1 quando suportado).
+- Na T4, o botão **"Instalar atalho desta rifa"** usa o manifesto público de
+  `/r/{slug}/manifest.webmanifest`, cujo `start_url` é a própria T4.
 - Offline: `navigator.onLine` + banner "Sem conexão"; **ações de gravação bloqueadas** sem fila offline (v1).
 
 ### 4.19 Contratos de formatação (`lib/formato.ts`)
@@ -477,6 +481,21 @@ CriarRifaInput {
 | Telefone             | máscara "(XX) XXXXX-XXXX" ao digitar          | E.164: `+5511988887777` |
 | Data prevista        | DD/MM/AAAA                                    | date                    |
 | Data/hora de sorteio | DD/MM/AAAA HH:MM                              | timestamptz             |
+
+### 4.20 RF-19 · Atalho PWA da rifa pública
+
+- A T4 deve oferecer a ação **"Instalar atalho desta rifa"** quando o
+  navegador disponibilizar a instalação PWA.
+- A T4 referencia um manifesto dinâmico da rifa, identificado pelo `slug`,
+  com `start_url` igual a `/r/{slug}` e `id` distinto para cada rifa.
+- O manifesto reutiliza os ícones, cores e service worker do PWA geral; não
+  cria um service worker separado por rifa.
+- O atalho abre diretamente a T4 da rifa, sem autenticar o visitante e sem
+  alterar as permissões de venda pública.
+- Slug inexistente, rifa arquivada ou rifa excluída não pode gerar manifesto
+  instalável nem revelar dados da rifa.
+- O título da rifa pode aparecer como nome do aplicativo/atalho. O manifesto
+  nunca inclui compradores, telefones, vendas ou valores de arrecadação.
 
 ---
 
@@ -520,6 +539,7 @@ CriarRifaInput {
 | **RF-16 persistência**                   | E2E: registrar venda → recarregar página → dados intactos                                                                       | E2E: fechar e reabrir navegador mantém sessão do organizador e dados da rifa                                                                                                                               |
 | **RF-17 upload de foto**                 | Unit: `enviarFoto` com JPG 3 MB → grava no bucket `premios`, `imagem_url` retornado, preview na T2Edit                          | Unit: rejeita PDF renomeado (magic bytes) e arquivo > 5 MB, com mensagem pt-BR                                                                                                                             |
 | **RF-18 tempo real**                     | E2E (2 contextos): venda na T4 reflete pastilha/progresso na T3 aberta sem refresh                                              | Int.: Realtime não entrega linhas de `compradores`/`vendas` para `anon` (payload só de `numeros`)                                                                                                          |
+| **RF-19 atalho PWA da T4**                | E2E: T4 referencia manifesto dinâmico com `start_url` `/r/{slug}`, `id` próprio e ação de instalação disponível quando suportada | E2E: manifesto de slug inexistente/arquivado/excluído retorna não encontrado e não contém dados da rifa; manifesto geral da T1 continua válido |
 | **4.17 login/perfil**                    | E2E: login com credenciais válidas → T1; perfil salva nome + WhatsApp e aparece no rodapé da T4                                 | E2E: credenciais inválidas → mensagem de erro, sem sessão; `anon` tentando gravar via DB (bypass de UI) → negado por RLS                                                                                   |
 | **4.18 PWA/offline**                     | E2E: manifest válido; "Instalar app" ofertado quando suportado                                                                  | E2E: `context.setOffline(true)` → banner "Sem conexão" e botões de gravação desabilitados                                                                                                                  |
 | **RLS (transversal)**                    | Int.: `anon` SELECT lê rifas/numeros publicados                                                                                 | Int.: `anon` INSERT/UPDATE em qualquer tabela e SELECT em `compradores`/`vendas` → **negado**                                                                                                              |
